@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model feedback {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id    String    @db.Uuid
+  fm_id      String    @db.Uuid
+  message    String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [fm_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasks      tasks     @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model messages {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id    String    @db.Uuid
+  sender_id  String    @db.Uuid
+  content    String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasks      tasks     @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notifications {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  message    String
+  type       String?
+  is_read    Boolean?  @default(false)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model task_submissions {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id      String    @db.Uuid
+  photo_url    String?
+  description  String?
+  submitted_at DateTime? @default(now()) @db.Timestamptz(6)
+  tasks        tasks     @relation(fields: [task_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tasks {
+  id                           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id                    String             @db.Uuid
+  fm_id                        String             @db.Uuid
+  worker_id                    String?            @db.Uuid
+  deadline                     DateTime?          @db.Timestamptz(6)
+  instructions                 String?
+  status                       String?            @default("assigned")
+  created_at                   DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?          @default(now()) @db.Timestamptz(6)
+  feedback                     feedback[]
+  messages                     messages[]
+  task_submissions             task_submissions[]
+  users_tasks_fm_idTousers     users              @relation("tasks_fm_idTousers", fields: [fm_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tickets                      tickets            @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users_tasks_worker_idTousers users?             @relation("tasks_worker_idTousers", fields: [worker_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tickets {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cm_id       String    @db.Uuid
+  photo_url   String?
+  description String?
+  location    String
+  category    String
+  status      String?   @default("pending")
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+  tasks       tasks[]
+  users       users     @relation(fields: [cm_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                           String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                        String          @unique
+  password_hash                String
+  full_name                    String?
+  role                         String
+  theme                        String?         @default("light")
+  cm_type                      String?
+  major                        String?
+  department                   String?
+  specialization               String?
+  is_active                    Boolean?        @default(true)
+  created_at                   DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?       @default(now()) @db.Timestamptz(6)
+  feedback                     feedback[]
+  messages                     messages[]
+  notifications                notifications[]
+  tasks_tasks_fm_idTousers     tasks[]         @relation("tasks_fm_idTousers")
+  tasks_tasks_worker_idTousers tasks[]         @relation("tasks_worker_idTousers")
+  tickets                      tickets[]
+}

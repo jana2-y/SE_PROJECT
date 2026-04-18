@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "FacilityManagement",
-    "slug": "FacilityManagement",
+    "name": "CampusCare",
+    "slug": "CampusCare",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
