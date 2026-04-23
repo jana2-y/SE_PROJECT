@@ -1,14 +1,37 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { useEffect } from 'react';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { AuthProvider } from '../context/AuthContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+// Rendered inside the navigation context so useRouter/useSegments work correctly
+function NavigationGuard() {
+  // const { user, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+
+  //UNCOMMENT WHEN NEEDED: LUJIAN, JANA AND JANNA
+
+  // useEffect(() => {
+  //   if (loading) return;
+  //   const inAuthGroup = segments[0] === 'login' || segments[0] === 'signup';
+  //   if (!user && !inAuthGroup) {
+  //     router.replace('/login');
+  //   } else if (user && inAuthGroup) {
+  //     const role = user.role;
+  //     if (role === 'community_member') router.replace('/cm/home');
+  //     else if (role === 'facility_manager') router.replace('/fm/home');
+  //     else if (role === 'worker') router.replace('/worker/home');
+  //     else router.replace('/');
+  //   }
+  // }, [user, segments, loading]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -22,9 +45,9 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
+        <NavigationGuard />
         <StatusBar style="auto" />
       </ThemeProvider>
     </AuthProvider>
   );
 }
-//gg

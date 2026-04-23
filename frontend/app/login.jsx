@@ -5,7 +5,6 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
@@ -24,13 +23,15 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState('');
 
     const router = useRouter();
     const { login } = useAuth();
 
     const handleLogin = async () => {
+        setError('');
         if (!email || !password) {
-            Alert.alert("Error", "Please fill in all fields");
+            setError('Please fill out all fields.');
             return;
         }
 
@@ -38,22 +39,25 @@ const Login = () => {
         try {
             const data = await api.login({ email, password });
             await login(data);
-            Alert.alert("Welcome back!", `Logged in successfully.`);
-            // Redirect happens automatically via AuthContext
-        } catch (error) {
-            Alert.alert("Login Failed", error.message);
+
+            const role = data.user.role;
+            if (role === 'community_member') router.replace('/cm/home');
+            else if (role === 'facility_manager') router.replace('/fm/home');
+            else if (role === 'worker') router.replace('/worker/home');
+            else router.replace('/');
+        } catch (err) {
+            setError(err.message || 'Incorrect email or password.');
         } finally {
             setLoading(false);
         }
     };
-
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.container}
         >
             <LinearGradient
-                colors={['#1a2a6c', '#b21f1f', '#fdbb2d']}
+                colors={['#000428', '#004e92']}
                 style={styles.gradient}
             >
                 <View style={styles.card}>
@@ -96,6 +100,8 @@ const Login = () => {
                             />
                         </TouchableOpacity>
                     </View>
+
+                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
                     <TouchableOpacity
                         style={[styles.button, loading && styles.buttonDisabled]}
@@ -177,6 +183,7 @@ const styles = StyleSheet.create({
     },
     buttonDisabled: { opacity: 0.7 },
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    errorText: { color: '#cc0000', fontSize: 13, marginBottom: 8, alignSelf: 'flex-start' },
     linkText: { marginTop: 20, color: '#666', fontSize: 14 },
     linkTextBold: { color: '#1a2a6c', fontWeight: 'bold' }
 });

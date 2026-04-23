@@ -1,15 +1,16 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-
-const authRoutes = require('./routes/authRoutes');
-const { protect, authorize } = require('./middleware/authMiddleware');
+import express from 'express'
+import cors from 'cors'
+import 'dotenv/config'
+import authRoutes from './routes/authRoutes.js'
+import { protect, authorize } from './middleware/authMiddleware.js'
+import fmRoutes from './routes/fmRoutes.js';
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/api/fm', fmRoutes);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -42,4 +43,3 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-//gg

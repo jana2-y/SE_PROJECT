@@ -1,4 +1,4 @@
-const supabase = require('../supabase');
+import supabase from '../supabase.js';
 
 const protect = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -25,4 +25,4 @@ const authorize = (...roles) => {
     };
 };
 
-module.exports = { protect, authorize };  //ggg
+export { protect, authorize };

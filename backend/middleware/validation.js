@@ -1,10 +1,14 @@
-const Joi = require('joi');
+import Joi from 'joi';
 
 const validateSignup = (req, res, next) => {
     const schema = Joi.object({
+        full_name: Joi.string().required(),
         email: Joi.string().email().required(),
         password: Joi.string().min(6).required(),
-        role: Joi.string().valid('community_member', 'facility_manager', 'worker', 'admin').required()
+        role: Joi.string().valid('community_member', 'facility_manager', 'worker', 'admin').required(),
+        cm_role: Joi.string().valid('student', 'staff').optional(),
+        major: Joi.string().optional(),
+        department: Joi.string().optional(),
     });
 
     console.log('Signup validation body:', req.body);
@@ -31,4 +35,4 @@ const validateLogin = (req, res, next) => {
     next();
 };
 
-module.exports = { validateSignup, validateLogin }; //gg
+export { validateSignup, validateLogin };
