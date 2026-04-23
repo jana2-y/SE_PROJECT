@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    TouchableOpacity, 
-    StyleSheet, 
-    Alert, 
-    KeyboardAvoidingView, 
-    Platform, 
+import React, { useState } from 'react'; //gg
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
     ActivityIndicator,
     Dimensions,
     ScrollView
@@ -26,7 +26,7 @@ const Signup = () => {
     const [role, setRole] = useState('community_member');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    
+
     const router = useRouter();
 
     const handleSignup = async () => {
@@ -48,7 +48,7 @@ const Signup = () => {
     };
 
     return (
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.container}
         >
@@ -90,10 +90,10 @@ const Signup = () => {
                                 onChangeText={setPassword}
                             />
                             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                                <Ionicons 
-                                    name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                                    size={20} 
-                                    color="#666" 
+                                <Ionicons
+                                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                                    size={20}
+                                    color="#666"
                                 />
                             </TouchableOpacity>
                         </View>
@@ -111,8 +111,8 @@ const Signup = () => {
                             </Picker>
                         </View>
 
-                        <TouchableOpacity 
-                            style={[styles.button, loading && styles.buttonDisabled]} 
+                        <TouchableOpacity
+                            style={[styles.button, loading && styles.buttonDisabled]}
                             onPress={handleSignup}
                             disabled={loading}
                         >

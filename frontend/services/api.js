@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Replace with your machine's IP address if testing on a physical device
-const BASE_URL = 'http://localhost:3000/api'; 
+// Replace with your machine's IP address if testing on a physical devicee
+const BASE_URL = 'http://localhost:3000/api';
 
 const api = {
     async request(endpoint, options = {}) {
         const token = await AsyncStorage.getItem('userToken');
-        
+
         const headers = {
             'Content-Type': 'application/json',
             ...(token ? { 'Authorization': `Bearer ${token}` } : {}),

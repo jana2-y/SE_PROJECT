@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { 
-    View, 
-    Text, 
-    TextInput, 
-    TouchableOpacity, 
-    StyleSheet, 
-    Alert, 
-    KeyboardAvoidingView, 
-    Platform, 
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
     ActivityIndicator,
     Dimensions
-} from 'react-native';
+} from 'react-native'; //gg
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -24,7 +24,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    
+
     const router = useRouter();
     const { login } = useAuth();
 
@@ -48,7 +48,7 @@ const Login = () => {
     };
 
     return (
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.container}
         >
@@ -89,16 +89,16 @@ const Login = () => {
                             onChangeText={setPassword}
                         />
                         <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                            <Ionicons 
-                                name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                                size={20} 
-                                color="#666" 
+                            <Ionicons
+                                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                                size={20}
+                                color="#666"
                             />
                         </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity 
-                        style={[styles.button, loading && styles.buttonDisabled]} 
+                    <TouchableOpacity
+                        style={[styles.button, loading && styles.buttonDisabled]}
                         onPress={handleLogin}
                         disabled={loading}
                     >
@@ -181,4 +181,4 @@ const styles = StyleSheet.create({
     linkTextBold: { color: '#1a2a6c', fontWeight: 'bold' }
 });
 
-export default Login;
+export default Login;

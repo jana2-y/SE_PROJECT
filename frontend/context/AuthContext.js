@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
             // Redirect to login if not authenticated
             router.replace('/login');
         } else if (user && inAuthGroup) {
-            // Redirect to home if authenticated and trying to access auth screens
+            // Redirect to home if authenticated and trying to access auth screenss
             router.replace('/');
         }
     }, [user, segments, loading]);

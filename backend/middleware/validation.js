@@ -31,4 +31,4 @@ const validateLogin = (req, res, next) => {
     next();
 };
 
-module.exports = { validateSignup, validateLogin };
+module.exports = { validateSignup, validateLogin }; //gg

@@ -3,7 +3,7 @@ const asyncHandler = require('express-async-handler');
 
 // @desc    Register new user
 // @route   POST /api/auth/signup
-// @access  Public
+// @access  Publicc
 exports.signup = asyncHandler(async (req, res) => {
     const { email, password, role } = req.body;
 
@@ -53,4 +53,4 @@ exports.login = asyncHandler(async (req, res) => {
             role: data.user.user_metadata.role
         }
     });
-});
+});
