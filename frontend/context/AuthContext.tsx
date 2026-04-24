@@ -1,12 +1,36 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const AuthContext = createContext({});
+type UserRole = 'community_member' | 'facility_manager' | 'worker';
+
+type User = {
+    token: string;
+    role: UserRole;
+    email: string;
+};
+
+type LoginData = {
+    token: string;
+    refresh_token?: string;
+    user: {
+        role: UserRole;
+        email: string;
+    };
+};
+
+type AuthContextType = {
+    user: User | null;
+    loading: boolean;
+    login: (data: LoginData) => Promise<void>;
+    logout: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const useAuth = () => useContext(AuthContext);
 
-export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+    const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -20,7 +44,7 @@ export const AuthProvider = ({ children }) => {
             const email = await AsyncStorage.getItem('userEmail');
 
             if (token && role) {
-                setUser({ token, role, email });
+                setUser({ token, role: role as UserRole, email: email ?? '' });
             }
         } catch (e) {
             console.error('Failed to load auth state', e);
@@ -29,10 +53,13 @@ export const AuthProvider = ({ children }) => {
         }
     }
 
-    const login = async (data) => {
+    const login = async (data: LoginData) => {
         await AsyncStorage.setItem('userToken', data.token);
         await AsyncStorage.setItem('userRole', data.user.role);
         await AsyncStorage.setItem('userEmail', data.user.email);
+        if (data.refresh_token) {
+            await AsyncStorage.setItem('userRefreshToken', data.refresh_token);
+        }
         setUser({ token: data.token, role: data.user.role, email: data.user.email });
     };
 

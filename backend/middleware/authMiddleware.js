@@ -8,7 +8,13 @@ const protect = async (req, res, next) => {
         const { data: { user }, error } = await supabase.auth.getUser(token);
         if (error || !user) return res.status(401).json({ error: 'Token is not valid' });
 
-        req.user = user;
+        const { data: userData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+
+        req.user = { ...user, role: userData?.role };
         next();
     } catch (err) {
         res.status(401).json({ error: 'Server error in auth middleware' });
@@ -17,7 +23,7 @@ const protect = async (req, res, next) => {
 
 const authorize = (...roles) => {
     return (req, res, next) => {
-        const userRole = req.user.user_metadata?.role;
+        const userRole = req.user.role;
         if (!roles.includes(userRole)) {
             return res.status(403).json({ error: `User role ${userRole} is not authorized` });
         }

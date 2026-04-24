@@ -48,6 +48,8 @@ const getTickets = asyncHandler(async (req, res) => {
   }
 
   const { data, error } = await query;
+  console.log('data:', JSON.stringify(data, null, 2));
+  console.log('error:', error);
 
   if (error) {
     res.status(500);
@@ -134,7 +136,7 @@ const getWorkers = asyncHandler(async (req, res) => {
 
 const assignTicket = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { worker_id, deadline } = req.body;
+  const { worker_id, deadline, priority } = req.body;
 
   if (!worker_id || !deadline) {
     res.status(400);
@@ -181,6 +183,7 @@ const assignTicket = asyncHandler(async (req, res) => {
       deadline,
       fm_id: req.user.id,
       status: 'assigned',
+      priority: priority || 'medium',
     });
 
   if (assignError) {

@@ -9,26 +9,18 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 
 // Rendered inside the navigation context so useRouter/useSegments work correctly
 function NavigationGuard() {
-  // const { user, loading } = useAuth();
+  const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
 
-  //UNCOMMENT WHEN NEEDED: LUJIAN, JANA AND JANNA
-
-  // useEffect(() => {
-  //   if (loading) return;
-  //   const inAuthGroup = segments[0] === 'login' || segments[0] === 'signup';
-  //   if (!user && !inAuthGroup) {
-  //     router.replace('/login');
-  //   } else if (user && inAuthGroup) {
-  //     const role = user.role;
-  //     if (role === 'community_member') router.replace('/cm/home');
-  //     else if (role === 'facility_manager') router.replace('/fm/home');
-  //     else if (role === 'worker') router.replace('/worker/home');
-  //     else router.replace('/');
-  //   }
-  // }, [user, segments, loading]);
+  useEffect(() => {
+    if (loading) return;
+    const inAuthGroup = segments[0] === 'login' || segments[0] === 'signup';
+    if (!user && !inAuthGroup) {
+      router.replace('/login');
+    }
+  }, [user, segments, loading]);
 
   return null;
 }
@@ -42,6 +34,7 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen name="login" options={{ headerShown: false }} />
           <Stack.Screen name="signup" options={{ headerShown: false }} />
+          <Stack.Screen name="fm" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>

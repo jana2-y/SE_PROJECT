@@ -55,7 +55,28 @@
 //     });
 // });
 
-// export { signup, login };
+// // ─── REFRESH TOKEN ────────────────────────────────────────────────────────────
+
+const refresh = asyncHandler(async (req, res) => {
+    const { refresh_token } = req.body;
+    if (!refresh_token) {
+        res.status(400);
+        throw new Error('Refresh token required.');
+    }
+
+    const { data, error } = await supabase.auth.refreshSession({ refresh_token });
+    if (error || !data.session) {
+        res.status(401);
+        throw new Error('Session expired. Please log in again.');
+    }
+
+    res.status(200).json({
+        token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+    });
+});
+
+export { signup, login, refresh };
 import supabase from '../supabase.js';
 import asyncHandler from 'express-async-handler';
 
@@ -207,8 +228,9 @@ const login = asyncHandler(async (req, res) => {
 
     res.status(200).json({
         token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
         user: userData,
     });
 });
 
-export { signup, login };
+//export { signup, login };

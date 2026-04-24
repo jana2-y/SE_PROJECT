@@ -39,10 +39,9 @@ const Login = () => {
         try {
             const data = await api.login({ email, password });
             await login(data);
-
             const role = data.user.role;
             if (role === 'community_member') router.replace('/cm/home');
-            else if (role === 'facility_manager') router.replace('/fm/home');
+            else if (role === 'facility_manager') router.replace('/fm/dashboard');
             else if (role === 'worker') router.replace('/worker/home');
             else router.replace('/');
         } catch (err) {
