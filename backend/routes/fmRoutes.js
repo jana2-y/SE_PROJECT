@@ -6,6 +6,8 @@ import {
     assignTicket,
     submitFeedback,
     getSettings,
+    verifyPassword,
+    changePassword,
 } from '../controllers/fmController.js';
 
 import { protect, authorize } from '../middleware/authMiddleware.js';
@@ -21,5 +23,7 @@ router.patch('/tickets/:id/assign', assignTicket);
 router.patch('/tickets/:id/feedback', submitFeedback);
 router.get('/workers', getWorkers);
 router.get('/settings', getSettings);
+router.post('/verify-password', verifyPassword);
+router.patch('/change-password', changePassword);
 
 export default router;

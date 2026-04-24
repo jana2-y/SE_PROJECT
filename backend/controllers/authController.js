@@ -83,7 +83,7 @@ import asyncHandler from 'express-async-handler';
 // ─── SIGNUP ───────────────────────────────────────────────────────────────────
 
 const signup = asyncHandler(async (req, res) => {
-    const { email, password, role, cm_role, major, department, full_name } = req.body;
+    const { email, password, role, cm_role, major, department, full_name, specialty, years_experience } = req.body;
 
     // required field check
     const requiredFields = { full_name, email, password, role };
@@ -161,6 +161,8 @@ const signup = asyncHandler(async (req, res) => {
             cm_role: role === 'community_member' ? cm_role : null,
             major: role === 'community_member' && cm_role === 'student' ? major : null,
             department: role === 'community_member' && cm_role === 'staff' ? department : null,
+            specialty: role === 'worker' ? specialty : null,
+            years_experience: role === 'worker' && years_experience ? years_experience : null,
             is_active: true,
         });
 

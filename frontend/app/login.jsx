@@ -43,6 +43,7 @@ const Login = () => {
             if (role === 'community_member') router.replace('/cm/home');
             else if (role === 'facility_manager') router.replace('/fm/dashboard');
             else if (role === 'worker') router.replace('/worker/home');
+            else if (role === 'admin') router.replace('/admin/dashboard');
             else router.replace('/');
         } catch (err) {
             setError(err.message || 'Incorrect email or password.');

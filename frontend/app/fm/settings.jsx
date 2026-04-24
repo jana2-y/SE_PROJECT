@@ -1,15 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
-    ActivityIndicator, Alert, Modal
+    ActivityIndicator, Alert, Modal, TextInput,
+    KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import api from '../../services/api';
 
 const FMSettings = () => {
     const router = useRouter();
     const { user, logout } = useAuth();
+    const { theme, colors: c, setTheme } = useTheme();
+
+    const styles = useMemo(() => makeStyles(c), [c]);
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -17,6 +22,14 @@ const FMSettings = () => {
     const [language, setLanguage] = useState('English');
 
     const LANGUAGES = ['English', 'Arabic', 'German'];
+
+    // change password modal
+    const [pwModalVisible, setPwModalVisible] = useState(false);
+    const [pwStep, setPwStep] = useState('verify');
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [pwLoading, setPwLoading] = useState(false);
+    const [pwError, setPwError] = useState('');
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -37,10 +50,48 @@ const FMSettings = () => {
         await logout();
     };
 
+    const openPwModal = () => {
+        setPwStep('verify');
+        setOldPassword('');
+        setNewPassword('');
+        setPwError('');
+        setPwModalVisible(true);
+    };
+
+    const handleVerifyPassword = async () => {
+        if (!oldPassword.trim()) { setPwError('Please enter your current password.'); return; }
+        setPwLoading(true);
+        setPwError('');
+        try {
+            await api.post('/fm/verify-password', { old_password: oldPassword });
+            setPwStep('change');
+        } catch (err) {
+            setPwError(err.message);
+        } finally {
+            setPwLoading(false);
+        }
+    };
+
+    const handleChangePassword = async () => {
+        if (!newPassword.trim()) { setPwError('Please enter a new password.'); return; }
+        if (newPassword.length < 6) { setPwError('Password must be at least 6 characters.'); return; }
+        setPwLoading(true);
+        setPwError('');
+        try {
+            await api.patch('/fm/change-password', { new_password: newPassword });
+            setPwModalVisible(false);
+            Alert.alert('Success', 'Your password has been updated.');
+        } catch (err) {
+            setPwError(err.message);
+        } finally {
+            setPwLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#0078D4" />
+                <ActivityIndicator size="large" color={c.primary} />
             </View>
         );
     }
@@ -48,7 +99,7 @@ const FMSettings = () => {
     return (
         <View style={styles.container}>
 
-            {/* Custom header */}
+            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity style={styles.headerBtn} onPress={() => router.replace('/fm/dashboard')}>
                     <Text style={styles.headerBtnIcon}>⌂</Text>
@@ -71,22 +122,40 @@ const FMSettings = () => {
             {/* Body */}
             <View style={styles.body}>
 
+                {/* Email */}
                 <View style={styles.row}>
-                    <Text style={styles.rowLabel}>Email</Text>
-                    <Text style={styles.rowValue}>{profile?.email}</Text>
+                    <Text style={styles.rowText}>Email: {profile?.email}</Text>
                 </View>
 
-                <TouchableOpacity style={styles.actionRow} onPress={() => Alert.alert('Coming soon', 'Change password coming soon.')}>
+                {/* Change Password */}
+                <TouchableOpacity style={styles.actionRow} onPress={openPwModal}>
                     <Text style={styles.actionRowText}>Change Password</Text>
-                    <Text style={styles.actionRowArrow}>›</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionRow} onPress={() => Alert.alert('Coming soon', 'Theme customisation coming soon.')}>
-                    <Text style={styles.actionRowText}>Change Theme</Text>
-                    <Text style={styles.actionRowArrow}>›</Text>
+                {/* Change Theme */}
+                <TouchableOpacity style={styles.actionRow} onPress={null} activeOpacity={1}>
+                    <Text style={styles.actionRowText}>Theme</Text>
+                    <View style={styles.themeToggle}>
+                        <TouchableOpacity
+                            style={[styles.themeBtn, theme === 'light' && styles.themeBtnActive]}
+                            onPress={() => setTheme('light')}
+                        >
+                            <Text style={[styles.themeBtnText, theme === 'light' && styles.themeBtnTextActive]}>
+                                Light
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.themeBtn, theme === 'dark' && styles.themeBtnActive]}
+                            onPress={() => setTheme('dark')}
+                        >
+                            <Text style={[styles.themeBtnText, theme === 'dark' && styles.themeBtnTextActive]}>
+                                Dark
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </TouchableOpacity>
 
-                {/* Language selector */}
+                {/* Language */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Language</Text>
                     {LANGUAGES.map(lang => (
@@ -103,6 +172,59 @@ const FMSettings = () => {
                     ))}
                 </View>
             </View>
+
+            {/* Change password modal */}
+            <Modal visible={pwModalVisible} transparent animationType="fade" onRequestClose={() => setPwModalVisible(false)}>
+                <KeyboardAvoidingView
+                    style={styles.modalOverlay}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <View style={styles.modalBox}>
+                        <Text style={styles.modalTitle}>
+                            {pwStep === 'verify' ? 'Verify Identity' : 'New Password'}
+                        </Text>
+                        <Text style={styles.modalBody}>
+                            {pwStep === 'verify'
+                                ? 'Enter your current password to continue.'
+                                : 'Enter your new password below.'}
+                        </Text>
+
+                        <TextInput
+                            style={styles.pwInput}
+                            placeholder={pwStep === 'verify' ? 'Current password' : 'New password'}
+                            placeholderTextColor={c.textSub}
+                            secureTextEntry
+                            value={pwStep === 'verify' ? oldPassword : newPassword}
+                            onChangeText={pwStep === 'verify' ? setOldPassword : setNewPassword}
+                            autoCapitalize="none"
+                        />
+
+                        {pwError ? <Text style={styles.pwError}>{pwError}</Text> : null}
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={styles.modalNo}
+                                onPress={() => setPwModalVisible(false)}
+                                disabled={pwLoading}
+                            >
+                                <Text style={styles.modalNoText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.modalYes}
+                                onPress={pwStep === 'verify' ? handleVerifyPassword : handleChangePassword}
+                                disabled={pwLoading}
+                            >
+                                {pwLoading
+                                    ? <ActivityIndicator color="#fff" size="small" />
+                                    : <Text style={styles.modalYesText}>
+                                        {pwStep === 'verify' ? 'Verify' : 'Submit'}
+                                    </Text>
+                                }
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
 
             {/* Logout confirmation modal */}
             <Modal visible={logoutVisible} transparent animationType="fade">
@@ -125,38 +247,43 @@ const FMSettings = () => {
     );
 };
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F3F3F3' },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { backgroundColor: '#fff', borderBottomWidth: 1, borderColor: '#E5E5E5', paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    headerBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-    headerBtnIcon: { fontSize: 22, color: '#181C22' },
-    logoutBtnText: { fontSize: 13, fontWeight: '600', color: '#DC2626' },
-    avatarWrap: { alignItems: 'center' },
-    avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#0078D4', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-    avatarText: { color: '#fff', fontSize: 28, fontWeight: '700' },
-    avatarName: { fontSize: 15, fontWeight: '600', color: '#181C22' },
-    body: { padding: 16 },
-    row: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#E5E5E5', padding: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between' },
-    rowLabel: { fontSize: 13, fontWeight: '600', color: '#717783' },
-    rowValue: { fontSize: 13, color: '#181C22', flexShrink: 1, textAlign: 'right' },
-    actionRow: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#E5E5E5', padding: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    actionRowText: { fontSize: 14, color: '#181C22', fontWeight: '500' },
-    actionRowArrow: { fontSize: 18, color: '#717783' },
-    section: { backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#E5E5E5', padding: 16, marginBottom: 10 },
-    sectionTitle: { fontSize: 13, fontWeight: '600', color: '#717783', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-    langRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: '#F3F3F3' },
-    langText: { fontSize: 14, color: '#181C22' },
-    langCheck: { fontSize: 16, color: '#0078D4', fontWeight: '700' },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
-    modalBox: { backgroundColor: '#fff', borderRadius: 12, padding: 24, width: '80%' },
-    modalTitle: { fontSize: 18, fontWeight: '700', color: '#181C22', marginBottom: 8 },
-    modalBody: { fontSize: 14, color: '#404752', marginBottom: 24 },
-    modalButtons: { flexDirection: 'row', gap: 12 },
-    modalNo: { flex: 1, paddingVertical: 12, borderRadius: 4, borderWidth: 1, borderColor: '#E5E5E5', alignItems: 'center' },
-    modalNoText: { fontSize: 14, fontWeight: '600', color: '#181C22' },
-    modalYes: { flex: 1, paddingVertical: 12, borderRadius: 4, backgroundColor: '#DC2626', alignItems: 'center' },
-    modalYesText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+const makeStyles = (c) => StyleSheet.create({
+    container:          { flex: 1, backgroundColor: c.bg },
+    centered:           { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.bg },
+    header:             { backgroundColor: c.headerBg, borderBottomWidth: 1, borderColor: c.border, paddingTop: 50, paddingBottom: 24, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    headerBtn:          { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+    headerBtnIcon:      { fontSize: 22, color: c.text },
+    logoutBtnText:      { fontSize: 13, fontWeight: '600', color: c.error },
+    avatarWrap:         { alignItems: 'center' },
+    avatar:             { width: 72, height: 72, borderRadius: 36, backgroundColor: c.avatarBg, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+    avatarText:         { color: '#fff', fontSize: 28, fontWeight: '700' },
+    avatarName:         { fontSize: 15, fontWeight: '600', color: c.text },
+    body:               { padding: 16 },
+    row:                { backgroundColor: c.surface, borderRadius: 8, borderWidth: 1, borderColor: c.border, padding: 16, marginBottom: 10 },
+    rowText:            { fontSize: 13, color: c.text },
+    actionRow:          { backgroundColor: c.surface, borderRadius: 8, borderWidth: 1, borderColor: c.border, padding: 16, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    actionRowText:      { fontSize: 14, color: c.text, fontWeight: '500' },
+    themeToggle:        { flexDirection: 'row', gap: 6 },
+    themeBtn:           { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 4, borderWidth: 1, borderColor: c.border, backgroundColor: c.inputBg },
+    themeBtnActive:     { backgroundColor: c.btnBg, borderColor: c.btnBg },
+    themeBtnText:       { fontSize: 12, fontWeight: '600', color: c.textSub },
+    themeBtnTextActive: { color: c.btnText },
+    section:            { backgroundColor: c.surface, borderRadius: 8, borderWidth: 1, borderColor: c.border, padding: 16, marginBottom: 10 },
+    sectionTitle:       { fontSize: 13, fontWeight: '600', color: c.textSub, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+    langRow:            { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: c.border },
+    langText:           { fontSize: 14, color: c.text },
+    langCheck:          { fontSize: 16, color: c.primary, fontWeight: '700' },
+    modalOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+    modalBox:           { backgroundColor: c.surface, borderRadius: 12, padding: 24, marginHorizontal: '22%', width: '56%', alignSelf: 'center' },
+    modalTitle:         { fontSize: 18, fontWeight: '700', color: c.text, marginBottom: 8 },
+    modalBody:          { fontSize: 14, color: c.textMid, marginBottom: 16 },
+    modalButtons:       { flexDirection: 'row', gap: 12, marginTop: 8 },
+    modalNo:            { flex: 1, paddingVertical: 12, borderRadius: 4, borderWidth: 1, borderColor: c.border, alignItems: 'center' },
+    modalNoText:        { fontSize: 14, fontWeight: '600', color: c.text },
+    modalYes:           { flex: 1, paddingVertical: 12, borderRadius: 4, backgroundColor: c.error, alignItems: 'center' },
+    modalYesText:       { fontSize: 14, fontWeight: '600', color: '#fff' },
+    pwInput:            { borderWidth: 1, borderColor: c.border, borderRadius: 6, padding: 12, fontSize: 14, color: c.text, backgroundColor: c.inputBg, marginBottom: 8 },
+    pwError:            { fontSize: 12, color: c.error, marginBottom: 8 },
 });
 
 export default FMSettings;

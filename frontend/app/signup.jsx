@@ -242,11 +242,14 @@ const Signup = () => {
     const [cmRole, setCmRole] = useState('select');
     const [major, setMajor] = useState('select major');
     const [department, setDepartment] = useState('select department');
+    const [specialty, setSpecialty] = useState('');
+    const [yearsExperience, setYearsExperience] = useState('');
     const [loading, setLoading] = useState(false);
     const [nameError, setNameError] = useState('');
     const [emailError, setEmailError] = useState('');
     const [passError, setPassError] = useState('');
     const [majorError, setMajorError] = useState('');
+    const [specialtyError, setSpecialtyError] = useState('');
 
     const router = useRouter();
 
@@ -263,6 +266,7 @@ const Signup = () => {
         setEmailError('');
         setPassError('');
         setMajorError('');
+        setSpecialtyError('');
 
         let hasError = false;
 
@@ -290,6 +294,10 @@ const Signup = () => {
             setMajorError('Please select your department.');
             hasError = true;
         }
+        if (role === 'worker' && !specialty) {
+            setSpecialtyError('Please select your specialty.');
+            hasError = true;
+        }
 
         if (hasError) return;
 
@@ -305,6 +313,8 @@ const Signup = () => {
                 cm_role: role === 'community_member' ? cmRole : undefined,
                 major: role === 'community_member' && cmRole === 'student' ? major : undefined,
                 department: role === 'community_member' && cmRole === 'staff' ? department : undefined,
+                specialty: role === 'worker' ? specialty : undefined,
+                years_experience: role === 'worker' && yearsExperience ? parseInt(yearsExperience, 10) : undefined,
             });
             Alert.alert(
                 'Account created!',
@@ -427,6 +437,39 @@ const Signup = () => {
                                     </Picker>
                                 </View>
                                 {majorError ? <Text style={styles.fieldError}>{majorError}</Text> : null}
+                            </>
+                        )}
+
+                        {/* specialty + years experience — only if worker */}
+                        {role === 'worker' && (
+                            <>
+                                <Text style={styles.label}>Specialty</Text>
+                                <View style={styles.pickerContainer}>
+                                    <Picker selectedValue={specialty} onValueChange={(v) => { setSpecialty(v); setSpecialtyError(''); }} style={styles.picker}>
+                                        <Picker.Item label="Select Specialty" value="" />
+                                        <Picker.Item label="Electrical Technician" value="Electrical Technician" />
+                                        <Picker.Item label="Plumber" value="Plumber" />
+                                        <Picker.Item label="HVAC Technician" value="HVAC Technician" />
+                                        <Picker.Item label="Cleaner/ Housekeeping Staff" value="Cleaner/ Housekeeping Staff" />
+                                        <Picker.Item label="IT Support" value="IT Support" />
+                                        <Picker.Item label="Facilities Technician" value="Facilities Technician" />
+                                        <Picker.Item label="Groundskeeper" value="Groundskeeper" />
+                                    </Picker>
+                                </View>
+                                {specialtyError ? <Text style={styles.fieldError}>{specialtyError}</Text> : null}
+
+                                <Text style={styles.label}>Years of Experience</Text>
+                                <View style={styles.inputContainer}>
+                                    <Ionicons name="briefcase-outline" size={20} color="#666" style={styles.inputIcon} />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="e.g. 3"
+                                        placeholderTextColor="#999"
+                                        value={yearsExperience}
+                                        onChangeText={(t) => setYearsExperience(t.replace(/[^0-9]/g, ''))}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
                             </>
                         )}
 

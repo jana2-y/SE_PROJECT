@@ -30,6 +30,7 @@ const getTickets = asyncHandler(async (req, res) => {
         deadline,
         proof_url,
         feedback,
+        worker_note,
         status,
         fm_id
       )
@@ -92,6 +93,7 @@ const getTicketById = asyncHandler(async (req, res) => {
         deadline,
         proof_url,
         feedback,
+        worker_note,
         status,
         fm_id
       )
@@ -378,6 +380,25 @@ const submitFeedback = asyncHandler(async (req, res) => {
       });
 
     if (cmNotifError) console.error('CM notification failed:', cmNotifError.message);
+
+    // award points to ticket creator on accept
+    if (action === 'accept') {
+      const { data: config } = await supabase
+        .from('points_config')
+        .select('points_per_ticket')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      const pointsToAward = config?.points_per_ticket || 10;
+
+      const { error: pointsError } = await supabase.rpc('increment_points', {
+        user_id: ticketCreator.created_by,
+        amount:  pointsToAward,
+      });
+
+      if (pointsError) console.error('Points award failed:', pointsError.message);
+    }
   }
 
   res.status(200).json({
@@ -404,6 +425,56 @@ const getSettings = asyncHandler(async (req, res) => {
   res.status(200).json(data);
 });
 
+const verifyPassword = asyncHandler(async (req, res) => {
+  const { old_password } = req.body;
+  if (!old_password) {
+    res.status(400);
+    throw new Error('Password required.');
+  }
+
+  const { data: userData, error: userError } = await supabase
+    .from('users')
+    .select('email')
+    .eq('id', req.user.id)
+    .single();
+
+  if (userError || !userData) {
+    res.status(404);
+    throw new Error('User not found.');
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: userData.email,
+    password: old_password,
+  });
+
+  if (error) {
+    res.status(401);
+    throw new Error('Incorrect password.');
+  }
+
+  res.status(200).json({ valid: true });
+});
+
+const changePassword = asyncHandler(async (req, res) => {
+  const { new_password } = req.body;
+  if (!new_password || new_password.length < 6) {
+    res.status(400);
+    throw new Error('Password must be at least 6 characters.');
+  }
+
+  const { error } = await supabase.auth.admin.updateUserById(req.user.id, {
+    password: new_password,
+  });
+
+  if (error) {
+    res.status(500);
+    throw new Error(error.message);
+  }
+
+  res.status(200).json({ message: 'Password updated successfully.' });
+});
+
 export {
   getTickets,
   getTicketById,
@@ -411,4 +482,6 @@ export {
   assignTicket,
   submitFeedback,
   getSettings,
+  verifyPassword,
+  changePassword,
 };
