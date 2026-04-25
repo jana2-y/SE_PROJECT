@@ -5,6 +5,7 @@ import {
     Dimensions, KeyboardAvoidingView, Platform
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../context/ThemeContext';
 import api from '../../services/api';
 
@@ -12,6 +13,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
     const { colors: c } = useTheme();
+    const { t } = useTranslation();
     const styles = useMemo(() => makeStyles(c), [c]);
 
     const [ticket, setTicket] = useState(null);
@@ -146,17 +148,17 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
                                             />
                                         ) : (
                                             <View style={[styles.proofImage, styles.proofImagePlaceholder]}>
-                                                <Text style={styles.placeholderText}>No image</Text>
+                                                <Text style={styles.placeholderText}>{t('noImage')}</Text>
                                             </View>
                                         )}
                                     </View>
 
                                     {/* Right column: worker note + actions */}
                                     <View style={styles.proofTextWrap}>
-                                        <Text style={styles.proofTextLabel}>Worker's note</Text>
+                                        <Text style={styles.proofTextLabel}>{t('workersNote')}</Text>
                                         <ScrollView style={styles.proofTextScroll} nestedScrollEnabled>
                                             <Text style={styles.proofTextContent}>
-                                                {assignment?.worker_note || 'No description provided.'}
+                                                {assignment?.worker_note || t('noDescription')}
                                             </Text>
                                         </ScrollView>
 
@@ -167,7 +169,7 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
                                                 onPress={() => { setAction('accept'); setFeedbackText(''); }}
                                             >
                                                 <Text style={[styles.acceptBtnText, action === 'accept' && styles.acceptBtnTextActive]}>
-                                                    Accept
+                                                    {t('accept')}
                                                 </Text>
                                             </TouchableOpacity>
 
@@ -176,7 +178,7 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
                                                 onPress={() => { setAction('reject'); setFeedbackText(''); }}
                                             >
                                                 <Text style={[styles.rejectBtnText, action === 'reject' && styles.rejectBtnTextActive]}>
-                                                    Reject
+                                                    {t('reject')}
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
@@ -186,10 +188,10 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
                                             <View style={styles.feedbackWrap}>
                                                 <View style={styles.feedbackLabelRow}>
                                                     <Text style={styles.feedbackLabel}>
-                                                        {action === 'reject' ? 'Reason for rejection' : 'Add a note (optional)'}
+                                                        {action === 'reject' ? t('rejectionReason') : t('optionalNote')}
                                                     </Text>
                                                     {action === 'reject' && (
-                                                        <Text style={styles.requiredTag}>Required</Text>
+                                                        <Text style={styles.requiredTag}>{t('required')}</Text>
                                                     )}
                                                     <Text style={[styles.wordCount, wordCount > 50 && styles.wordCountOver]}>
                                                         {wordCount}/50
@@ -198,7 +200,7 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
 
                                                 <TextInput
                                                     style={[styles.feedbackInput, wordCount > 50 && styles.feedbackInputOver]}
-                                                    placeholder={action === 'reject' ? 'Enter reason for rejection...' : 'Optional note for worker...'}
+                                                    placeholder={action === 'reject' ? t('rejectionPlaceholder') : t('optionalNotePlaceholder')}
                                                     placeholderTextColor={c.textSub}
                                                     multiline
                                                     value={feedbackText}
@@ -207,7 +209,7 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
 
                                                 {action === 'reject' && (
                                                     <View style={styles.deadlineWrap}>
-                                                        <Text style={styles.feedbackLabel}>New Deadline</Text>
+                                                        <Text style={styles.feedbackLabel}>{t('newDeadline')}</Text>
                                                         {Platform.OS === 'web' ? (
                                                             <input
                                                                 type="date"
@@ -264,9 +266,7 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
                     {action && !loading && (
                         <View style={styles.footer}>
                             {showTooltip && (
-                                <Text style={styles.tooltip}>
-                                    Enter reason for rejection in feedback section first
-                                </Text>
+                                <Text style={styles.tooltip}>{t('tooltipReject')}</Text>
                             )}
                             <TouchableOpacity
                                 style={[styles.submitBtn, isSubmitDisabled && styles.submitBtnDisabled]}
@@ -276,7 +276,7 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
                             >
                                 {submitting
                                     ? <ActivityIndicator color="#fff" />
-                                    : <Text style={styles.submitBtnText}>Submit</Text>
+                                    : <Text style={styles.submitBtnText}>{t('submit')}</Text>
                                 }
                             </TouchableOpacity>
                         </View>

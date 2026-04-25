@@ -5,21 +5,24 @@ import {
     KeyboardAvoidingView, Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import api from '../../services/api';
 
 const FMSettings = () => {
     const router = useRouter();
+    const { t } = useTranslation();
     const { user, logout } = useAuth();
     const { theme, colors: c, setTheme } = useTheme();
+    const { language, setLanguage } = useLanguage();
 
     const styles = useMemo(() => makeStyles(c), [c]);
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [logoutVisible, setLogoutVisible] = useState(false);
-    const [language, setLanguage] = useState('English');
 
     const LANGUAGES = ['English', 'Arabic', 'German'];
 
@@ -59,7 +62,7 @@ const FMSettings = () => {
     };
 
     const handleVerifyPassword = async () => {
-        if (!oldPassword.trim()) { setPwError('Please enter your current password.'); return; }
+        if (!oldPassword.trim()) { setPwError(t('pwErrorCurrent')); return; }
         setPwLoading(true);
         setPwError('');
         try {
@@ -73,14 +76,14 @@ const FMSettings = () => {
     };
 
     const handleChangePassword = async () => {
-        if (!newPassword.trim()) { setPwError('Please enter a new password.'); return; }
-        if (newPassword.length < 6) { setPwError('Password must be at least 6 characters.'); return; }
+        if (!newPassword.trim()) { setPwError(t('pwErrorNew')); return; }
+        if (newPassword.length < 6) { setPwError(t('pwErrorLength')); return; }
         setPwLoading(true);
         setPwError('');
         try {
             await api.patch('/fm/change-password', { new_password: newPassword });
             setPwModalVisible(false);
-            Alert.alert('Success', 'Your password has been updated.');
+            Alert.alert(t('success'), t('passwordUpdated'));
         } catch (err) {
             setPwError(err.message);
         } finally {
@@ -115,7 +118,7 @@ const FMSettings = () => {
                 </View>
 
                 <TouchableOpacity style={styles.headerBtn} onPress={() => setLogoutVisible(true)}>
-                    <Text style={styles.logoutBtnText}>Exit</Text>
+                    <Text style={styles.logoutBtnText}>{t('exit')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -124,24 +127,24 @@ const FMSettings = () => {
 
                 {/* Email */}
                 <View style={styles.row}>
-                    <Text style={styles.rowText}>Email: {profile?.email}</Text>
+                    <Text style={styles.rowText}>{t('email')}: {user?.email}</Text>
                 </View>
 
                 {/* Change Password */}
                 <TouchableOpacity style={styles.actionRow} onPress={openPwModal}>
-                    <Text style={styles.actionRowText}>Change Password</Text>
+                    <Text style={styles.actionRowText}>{t('changePassword')}</Text>
                 </TouchableOpacity>
 
                 {/* Change Theme */}
                 <TouchableOpacity style={styles.actionRow} onPress={null} activeOpacity={1}>
-                    <Text style={styles.actionRowText}>Theme</Text>
+                    <Text style={styles.actionRowText}>{t('theme')}</Text>
                     <View style={styles.themeToggle}>
                         <TouchableOpacity
                             style={[styles.themeBtn, theme === 'light' && styles.themeBtnActive]}
                             onPress={() => setTheme('light')}
                         >
                             <Text style={[styles.themeBtnText, theme === 'light' && styles.themeBtnTextActive]}>
-                                Light
+                                {t('light')}
                             </Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -149,7 +152,7 @@ const FMSettings = () => {
                             onPress={() => setTheme('dark')}
                         >
                             <Text style={[styles.themeBtnText, theme === 'dark' && styles.themeBtnTextActive]}>
-                                Dark
+                                {t('dark')}
                             </Text>
                         </TouchableOpacity>
                     </View>
@@ -157,14 +160,14 @@ const FMSettings = () => {
 
                 {/* Language */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Language</Text>
+                    <Text style={styles.sectionTitle}>{t('language')}</Text>
                     {LANGUAGES.map(lang => (
                         <TouchableOpacity
                             key={lang}
                             style={styles.langRow}
                             onPress={() => setLanguage(lang)}
                         >
-                            <Text style={styles.langText}>{lang}</Text>
+                            <Text style={styles.langText}>{t(`lang_${lang.toLowerCase()}`)}</Text>
                             {language === lang && (
                                 <Text style={styles.langCheck}>✓</Text>
                             )}
@@ -181,17 +184,15 @@ const FMSettings = () => {
                 >
                     <View style={styles.modalBox}>
                         <Text style={styles.modalTitle}>
-                            {pwStep === 'verify' ? 'Verify Identity' : 'New Password'}
+                            {pwStep === 'verify' ? t('verifyIdentity') : t('newPasswordTitle')}
                         </Text>
                         <Text style={styles.modalBody}>
-                            {pwStep === 'verify'
-                                ? 'Enter your current password to continue.'
-                                : 'Enter your new password below.'}
+                            {pwStep === 'verify' ? t('verifyPrompt') : t('newPasswordPrompt')}
                         </Text>
 
                         <TextInput
                             style={styles.pwInput}
-                            placeholder={pwStep === 'verify' ? 'Current password' : 'New password'}
+                            placeholder={pwStep === 'verify' ? t('currentPasswordPlaceholder') : t('newPasswordPlaceholder')}
                             placeholderTextColor={c.textSub}
                             secureTextEntry
                             value={pwStep === 'verify' ? oldPassword : newPassword}
@@ -207,7 +208,7 @@ const FMSettings = () => {
                                 onPress={() => setPwModalVisible(false)}
                                 disabled={pwLoading}
                             >
-                                <Text style={styles.modalNoText}>Cancel</Text>
+                                <Text style={styles.modalNoText}>{t('cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.modalYes}
@@ -217,7 +218,7 @@ const FMSettings = () => {
                                 {pwLoading
                                     ? <ActivityIndicator color="#fff" size="small" />
                                     : <Text style={styles.modalYesText}>
-                                        {pwStep === 'verify' ? 'Verify' : 'Submit'}
+                                        {pwStep === 'verify' ? t('verify') : t('submit')}
                                     </Text>
                                 }
                             </TouchableOpacity>
@@ -230,14 +231,14 @@ const FMSettings = () => {
             <Modal visible={logoutVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalBox}>
-                        <Text style={styles.modalTitle}>Log out?</Text>
-                        <Text style={styles.modalBody}>Are you sure you want to log out?</Text>
+                        <Text style={styles.modalTitle}>{t('logoutTitle')}</Text>
+                        <Text style={styles.modalBody}>{t('logoutBody')}</Text>
                         <View style={styles.modalButtons}>
                             <TouchableOpacity style={styles.modalNo} onPress={() => setLogoutVisible(false)}>
-                                <Text style={styles.modalNoText}>No</Text>
+                                <Text style={styles.modalNoText}>{t('no')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.modalYes} onPress={handleLogout}>
-                                <Text style={styles.modalYesText}>Yes</Text>
+                                <Text style={styles.modalYesText}>{t('yes')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

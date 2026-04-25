@@ -211,17 +211,27 @@
 // export default Signup;
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
-    Dimensions, ScrollView
+    Dimensions, ScrollView, Modal
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import '../i18n';
+import i18n from 'i18next';
+import { useTranslation } from 'react-i18next';
 import api from '../services/api';
+
+const LANG_OPTIONS = [
+    { label: 'English', code: 'en', key: 'English' },
+    { label: 'العربية', code: 'ar', key: 'Arabic'  },
+    { label: 'Deutsch', code: 'de', key: 'German'  },
+];
 
 
 const { width } = Dimensions.get('window');
@@ -252,6 +262,25 @@ const Signup = () => {
     const [specialtyError, setSpecialtyError] = useState('');
 
     const router = useRouter();
+    const { t } = useTranslation();
+    const [langModalVisible, setLangModalVisible] = useState(false);
+    const [selectedLang, setSelectedLang] = useState('English');
+
+    useEffect(() => {
+        AsyncStorage.getItem('appLanguage').then(saved => {
+            if (saved) {
+                const match = LANG_OPTIONS.find(l => l.key === saved);
+                if (match) { setSelectedLang(match.key); i18n.changeLanguage(match.code); }
+            }
+        });
+    }, []);
+
+    const handleSelectLang = async (opt) => {
+        setSelectedLang(opt.key);
+        await i18n.changeLanguage(opt.code);
+        await AsyncStorage.setItem('appLanguage', opt.key);
+        setLangModalVisible(false);
+    };
 
     const getDomain = () => {
         if (role === 'community_member') return cmRole === 'student' ? domainLabels.CM_STUDENT : domainLabels.CM_STAFF;
@@ -271,31 +300,31 @@ const Signup = () => {
         let hasError = false;
 
         if (!fullName.trim()) {
-            setNameError('Please enter your full name.');
+            setNameError(t('errFullName'));
             hasError = true;
         }
         if (!emailLocal.trim()) {
-            setEmailError('Please enter your email username.');
+            setEmailError(t('errEmailUsername'));
             hasError = true;
         }
         if (!password) {
-            setPassError('Please enter a password.');
+            setPassError(t('errPassword'));
             hasError = true;
         }
         if (password && password.length < 6) {
-            setPassError('Password must be at least 6 characters.');
+            setPassError(t('errPasswordLength'));
             hasError = true;
         }
         if (role === 'community_member' && cmRole === 'student' && major === 'select major') {
-            setMajorError('Please select your major.');
+            setMajorError(t('errMajor'));
             hasError = true;
         }
         if (role === 'community_member' && cmRole === 'staff' && department === 'select department') {
-            setMajorError('Please select your department.');
+            setMajorError(t('errDepartment'));
             hasError = true;
         }
         if (role === 'worker' && !specialty) {
-            setSpecialtyError('Please select your specialty.');
+            setSpecialtyError(t('errSpecialty'));
             hasError = true;
         }
 
@@ -317,12 +346,11 @@ const Signup = () => {
                 years_experience: role === 'worker' && yearsExperience ? parseInt(yearsExperience, 10) : undefined,
             });
             Alert.alert(
-                'Account created!',
-                'Please check your email to verify your account before logging in.',
-                [{ text: 'Go to login', onPress: () => router.replace('/login') }]
+                t('accountCreatedTitle'),
+                t('accountCreatedBody'),
+                [{ text: t('goToLogin'), onPress: () => router.replace('/login') }]
             );
         } catch (error) {
-            // map backend error messages to the right field
             const msg = error.message || '';
             if (msg.toLowerCase().includes('email')) {
                 setEmailError(msg);
@@ -331,7 +359,7 @@ const Signup = () => {
             } else if (msg.toLowerCase().includes('name')) {
                 setNameError(msg);
             } else {
-                Alert.alert('Signup Failed', msg);
+                Alert.alert(t('signupFailed'), msg);
             }
         } finally {
             setLoading(false);
@@ -350,8 +378,8 @@ const Signup = () => {
                             <View style={styles.logoContainer}>
                                 <Ionicons name="person-add" size={40} color="#fff" />
                             </View>
-                            <Text style={styles.title}>Create Account</Text>
-                            <Text style={styles.subtitle}>Join GIU Facility Management</Text>
+                            <Text style={styles.title}>{t('createAccount')}</Text>
+                            <Text style={styles.subtitle}>{t('joinSubtitle')}</Text>
                         </View>
 
                         {/* full name */}
@@ -359,7 +387,7 @@ const Signup = () => {
                             <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="Full Name"
+                                placeholder={t('fullNamePlaceholder')}
                                 placeholderTextColor="#999"
                                 value={fullName}
                                 onChangeText={(t) => { setFullName(t); setNameError(''); }}
@@ -368,10 +396,10 @@ const Signup = () => {
                         {nameError ? <Text style={styles.fieldError}>{nameError}</Text> : null}
 
                         {/* role picker */}
-                        <Text style={styles.label}>Role</Text>
+                        <Text style={styles.label}>{t('roleLabel')}</Text>
                         <View style={styles.pickerContainer}>
                             <Picker selectedValue={role} onValueChange={setRole} style={styles.picker}>
-                                <Picker.Item label="Select Role" value="" />
+                                <Picker.Item label={t('selectRole')} value="" />
                                 <Picker.Item label="Community Member" value="community_member" />
                                 <Picker.Item label="Worker" value="worker" />
                                 <Picker.Item label="Facility Manager" value="facility_manager" />
@@ -381,10 +409,10 @@ const Signup = () => {
                         {/* cm_role picker — only if CM */}
                         {role === 'community_member' && (
                             <>
-                                <Text style={styles.label}>I am a</Text>
+                                <Text style={styles.label}>{t('iAmA')}</Text>
                                 <View style={styles.pickerContainer}>
                                     <Picker selectedValue={cmRole} onValueChange={setCmRole} style={styles.picker}>
-                                        <Picker.Item label="Select" value="" />
+                                        <Picker.Item label={t('selectCmRole')} value="" />
                                         <Picker.Item label="Student" value="student" />
                                         <Picker.Item label="Staff" value="staff" />
                                     </Picker>
@@ -479,7 +507,7 @@ const Signup = () => {
                             <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="username"
+                                placeholder={t('usernamePlaceholder')}
                                 placeholderTextColor="#999"
                                 value={emailLocal}
                                 onChangeText={(text) => {
@@ -503,7 +531,7 @@ const Signup = () => {
                             <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="Password"
+                                placeholder={t('passwordPlaceholder')}
                                 placeholderTextColor="#999"
                                 secureTextEntry={!showPassword}
                                 value={password}
@@ -525,19 +553,46 @@ const Signup = () => {
                         >
                             {loading
                                 ? <ActivityIndicator color="#fff" />
-                                : <Text style={styles.buttonText}>Sign Up</Text>
+                                : <Text style={styles.buttonText}>{t('signUpBtn')}</Text>
                             }
                         </TouchableOpacity>
 
                         <TouchableOpacity onPress={() => router.push('/login')}>
                             <Text style={styles.linkText}>
-                                Already have an account?{' '}
-                                <Text style={styles.linkTextBold}>Login</Text>
+                                {t('alreadyHaveAccount')}{' '}
+                                <Text style={styles.linkTextBold}>{t('loginLink')}</Text>
                             </Text>
                         </TouchableOpacity>
 
                     </View>
+
+                    {/* Language selector */}
+                    <TouchableOpacity style={styles.langSelector} onPress={() => setLangModalVisible(true)}>
+                        <Text style={styles.langSelectorText}>
+                            🌐 {LANG_OPTIONS.find(l => l.key === selectedLang)?.label}
+                        </Text>
+                    </TouchableOpacity>
                 </ScrollView>
+
+                {/* Language modal */}
+                <Modal visible={langModalVisible} transparent animationType="fade" onRequestClose={() => setLangModalVisible(false)}>
+                    <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setLangModalVisible(false)}>
+                        <View style={styles.modalBox}>
+                            {LANG_OPTIONS.map(opt => (
+                                <TouchableOpacity
+                                    key={opt.key}
+                                    style={[styles.modalOption, selectedLang === opt.key && styles.modalOptionActive]}
+                                    onPress={() => handleSelectLang(opt)}
+                                >
+                                    <Text style={[styles.modalOptionText, selectedLang === opt.key && styles.modalOptionTextActive]}>
+                                        {opt.label}
+                                    </Text>
+                                    {selectedLang === opt.key && <Text style={styles.modalOptionCheck}>✓</Text>}
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
             </LinearGradient>
         </KeyboardAvoidingView>
     );
@@ -609,6 +664,15 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         marginLeft: 4,
     },
+    langSelector: { alignSelf: 'flex-end', paddingRight: width * 0.05, paddingVertical: 12 },
+    langSelectorText: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
+    modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
+    modalBox: { backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', width: 200 },
+    modalOption: { paddingVertical: 14, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: '#f0f0f0' },
+    modalOptionActive: { backgroundColor: '#f0f4ff' },
+    modalOptionText: { fontSize: 15, color: '#333' },
+    modalOptionTextActive: { color: '#004e92', fontWeight: '700' },
+    modalOptionCheck: { fontSize: 14, color: '#004e92', fontWeight: '700' },
 });
 
 export default Signup;

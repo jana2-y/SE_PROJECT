@@ -413,7 +413,7 @@ const submitFeedback = asyncHandler(async (req, res) => {
 const getSettings = asyncHandler(async (req, res) => {
   const { data, error } = await supabase
     .from('users')
-    .select('id, full_name, email, theme')
+    .select('id, full_name, email')
     .eq('id', req.user.id)
     .single();
 

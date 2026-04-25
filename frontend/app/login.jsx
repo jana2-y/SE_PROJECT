@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,13 +8,24 @@ import {
     KeyboardAvoidingView,
     Platform,
     ActivityIndicator,
-    Dimensions
+    Dimensions,
+    Modal,
 } from 'react-native'; //gg
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import '../i18n';
+import i18n from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+
+const LANG_OPTIONS = [
+    { label: 'English', code: 'en', key: 'English' },
+    { label: 'العربية', code: 'ar', key: 'Arabic' },
+    { label: 'Deutsch', code: 'de', key: 'German' },
+];
 
 const { width } = Dimensions.get('window');
 
@@ -26,7 +37,29 @@ const Login = () => {
     const [error, setError] = useState('');
 
     const router = useRouter();
+    const { t } = useTranslation();
     const { login } = useAuth();
+    const [langModalVisible, setLangModalVisible] = useState(false);
+    const [selectedLang, setSelectedLang] = useState('English');
+
+    useEffect(() => {
+        AsyncStorage.getItem('appLanguage').then(saved => {
+            if (saved) {
+                const match = LANG_OPTIONS.find(l => l.key === saved);
+                if (match) {
+                    setSelectedLang(match.key);
+                    i18n.changeLanguage(match.code);
+                }
+            }
+        });
+    }, []);
+
+    const handleSelectLang = async (opt) => {
+        setSelectedLang(opt.key);
+        await i18n.changeLanguage(opt.code);
+        await AsyncStorage.setItem('appLanguage', opt.key);
+        setLangModalVisible(false);
+    };
 
     const handleLogin = async () => {
         setError('');
@@ -60,67 +93,98 @@ const Login = () => {
                 colors={['#000428', '#004e92']}
                 style={styles.gradient}
             >
-                <View style={styles.card}>
-                    <View style={styles.header}>
-                        <View style={styles.logoContainer}>
-                            <Ionicons name="business" size={40} color="#fff" />
+                <>
+                    <View style={styles.inner}>
+                        <View style={styles.card}>
+                            <View style={styles.header}>
+                                <View style={styles.logoContainer}>
+                                    <Ionicons name="business" size={40} color="#fff" />
+                                </View>
+                                <Text style={styles.title}>CampusCare®</Text>
+                                <Text style={styles.subtitle}>{t('loginSubtitle')}</Text>
+                            </View>
+
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder={t('emailPlaceholder')}
+                                    placeholderTextColor="#999"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                />
+                            </View>
+
+                            <View style={styles.inputContainer}>
+                                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder={t('passwordPlaceholder')}
+                                    placeholderTextColor="#999"
+                                    secureTextEntry={!showPassword}
+                                    value={password}
+                                    onChangeText={setPassword}
+                                />
+                                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                    <Ionicons
+                                        name={showPassword ? "eye-off-outline" : "eye-outline"}
+                                        size={20}
+                                        color="#666"
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+                            <TouchableOpacity
+                                style={[styles.button, loading && styles.buttonDisabled]}
+                                onPress={handleLogin}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.buttonText}>{t('loginBtn')}</Text>
+                                )}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity onPress={() => router.push('/signup')}>
+                                <Text style={styles.linkText}>
+                                    {t('noAccount')} <Text style={styles.linkTextBold}>{t('signUpLink')}</Text>
+                                </Text>
+                            </TouchableOpacity>
                         </View>
-                        <Text style={styles.title}>GIU Facility</Text>
-                        <Text style={styles.subtitle}>Welcome back, please login</Text>
-                    </View>
 
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="mail-outline" size={20} color="#666" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="GIU Email"
-                            placeholderTextColor="#999"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                        />
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                        <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Password"
-                            placeholderTextColor="#999"
-                            secureTextEntry={!showPassword}
-                            value={password}
-                            onChangeText={setPassword}
-                        />
-                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                            <Ionicons
-                                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                                size={20}
-                                color="#666"
-                            />
+                        {/* Language selector */}
+                        <TouchableOpacity style={styles.langSelector} onPress={() => setLangModalVisible(true)}>
+                            <Text style={styles.langSelectorText}>
+                                🌐 {LANG_OPTIONS.find(l => l.key === selectedLang)?.label}
+                            </Text>
                         </TouchableOpacity>
                     </View>
 
-                    {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-                    <TouchableOpacity
-                        style={[styles.button, loading && styles.buttonDisabled]}
-                        onPress={handleLogin}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.buttonText}>Login</Text>
-                        )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => router.push('/signup')}>
-                        <Text style={styles.linkText}>
-                            Don't have an account? <Text style={styles.linkTextBold}>Sign up</Text>
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+                    {/* Language modal */}
+                    <Modal visible={langModalVisible} transparent animationType="fade" onRequestClose={() => setLangModalVisible(false)}>
+                        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setLangModalVisible(false)}>
+                            <View style={styles.modalBox}>
+                                {LANG_OPTIONS.map(opt => (
+                                    <TouchableOpacity
+                                        key={opt.key}
+                                        style={[styles.modalOption, selectedLang === opt.key && styles.modalOptionActive]}
+                                        onPress={() => handleSelectLang(opt)}
+                                    >
+                                        <Text style={[styles.modalOptionText, selectedLang === opt.key && styles.modalOptionTextActive]}>
+                                            {opt.label}
+                                        </Text>
+                                        {selectedLang === opt.key && <Text style={styles.modalOptionCheck}>✓</Text>}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </TouchableOpacity>
+                    </Modal>
+                </>
             </LinearGradient>
         </KeyboardAvoidingView>
     );
@@ -129,6 +193,7 @@ const Login = () => {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     gradient: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    inner: { alignItems: 'center', width: '100%' },
     card: {
         width: width * 0.9,
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -185,7 +250,16 @@ const styles = StyleSheet.create({
     buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
     errorText: { color: '#cc0000', fontSize: 13, marginBottom: 8, alignSelf: 'flex-start' },
     linkText: { marginTop: 20, color: '#666', fontSize: 14 },
-    linkTextBold: { color: '#1a2a6c', fontWeight: 'bold' }
+    linkTextBold: { color: '#1a2a6c', fontWeight: 'bold' },
+    langSelector: { marginTop: 16, alignSelf: 'flex-end', paddingRight: width * 0.05 },
+    langSelectorText: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
+    modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
+    modalBox: { backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden', width: 200 },
+    modalOption: { paddingVertical: 14, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderColor: '#f0f0f0' },
+    modalOptionActive: { backgroundColor: '#f0f4ff' },
+    modalOptionText: { fontSize: 15, color: '#333' },
+    modalOptionTextActive: { color: '#1a2a6c', fontWeight: '700' },
+    modalOptionCheck: { fontSize: 14, color: '#1a2a6c', fontWeight: '700' },
 });
 
 export default Login;

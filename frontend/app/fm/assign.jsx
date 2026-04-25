@@ -6,6 +6,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import api from '../../services/api';
@@ -13,6 +14,7 @@ import api from '../../services/api';
 const AssignTicket = () => {
     const { ticketId } = useLocalSearchParams();
     const router = useRouter();
+    const { t } = useTranslation();
     const { user } = useAuth();
     const { colors: c } = useTheme();
     const styles = useMemo(() => makeStyles(c), [c]);
@@ -65,11 +67,11 @@ const AssignTicket = () => {
 
     const handleAssign = async () => {
         if (!selectedWorker) {
-            Alert.alert('Select a worker', 'Please select a worker before assigning.');
+            Alert.alert(t('selectWorkerTitle'), t('selectWorkerMsg'));
             return;
         }
         if (deadline <= new Date()) {
-            Alert.alert('Invalid deadline', 'Deadline must be in the future.');
+            Alert.alert(t('invalidDeadlineTitle'), t('invalidDeadlineMsg'));
             return;
         }
 
@@ -100,11 +102,11 @@ const AssignTicket = () => {
         <View style={styles.container}>
             <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
 
-                <Text style={styles.dateLabel}>Assign date: {today}</Text>
+                <Text style={styles.dateLabel}>{t('assignDate')}: {today}</Text>
 
                 {/* Set Deadline */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Set Deadline</Text>
+                    <Text style={styles.sectionTitle}>{t('setDeadline')}</Text>
                     {Platform.OS === 'web' ? (
                         <input
                             type="date"
@@ -143,24 +145,24 @@ const AssignTicket = () => {
 
                 {/* Priority */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Priority</Text>
+                    <Text style={styles.sectionTitle}>{t('priority')}</Text>
                     <View style={styles.pickerWrap}>
                         <Picker selectedValue={priority} onValueChange={setPriority} style={styles.picker} dropdownIconColor={c.text}>
-                            <Picker.Item label="Low" value="low" color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="Medium" value="medium" color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="High" value="high" color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="Critical" value="critical" color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('low')} value="low" color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('medium')} value="medium" color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('high')} value="high" color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('critical')} value="critical" color={c.text} style={styles.pickerItem} />
                         </Picker>
                     </View>
                 </View>
 
                 {/* Assign Worker */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Assign Worker</Text>
+                    <Text style={styles.sectionTitle}>{t('assignWorker')}</Text>
 
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Search by name..."
+                        placeholder={t('searchByName')}
                         placeholderTextColor={c.textSub}
                         value={search}
                         onChangeText={setSearch}
@@ -168,20 +170,20 @@ const AssignTicket = () => {
 
                     <View style={styles.pickerWrap}>
                         <Picker selectedValue={specialtyFilter} onValueChange={setSpecialtyFilter} style={styles.picker} dropdownIconColor={c.text}>
-                            <Picker.Item label="All specialties"           value=""                          color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="Electrical Technician"     value="Electrical Technician"     color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="Plumber"                   value="Plumber"                   color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="HVAC Technician"           value="HVAC Technician"           color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="Cleaner/ Housekeeping Staff" value="Cleaner/ Housekeeping Staff" color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="IT Support"                value="IT Support"                color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="Facilities Technician"     value="Facilities Technician"     color={c.text} style={styles.pickerItem} />
-                            <Picker.Item label="Groundskeeper"             value="Groundskeeper"             color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('allSpecialties')}  value=""                          color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('electricalTech')}  value="Electrical Technician"     color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('plumber')}         value="Plumber"                   color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('hvacTech')}        value="HVAC Technician"           color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('cleaner')}         value="Cleaner/ Housekeeping Staff" color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('itSupport')}       value="IT Support"                color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('facilitiesTech')}  value="Facilities Technician"     color={c.text} style={styles.pickerItem} />
+                            <Picker.Item label={t('groundskeeper')}   value="Groundskeeper"             color={c.text} style={styles.pickerItem} />
                         </Picker>
                     </View>
 
                     <ScrollView style={styles.workerList} nestedScrollEnabled showsVerticalScrollIndicator persistentScrollbar>
                         {filteredWorkers.length === 0 ? (
-                            <Text style={styles.noWorkers}>No workers found.</Text>
+                            <Text style={styles.noWorkers}>{t('noWorkers')}</Text>
                         ) : (
                             filteredWorkers.map(worker => {
                                 const isSelected = selectedWorker?.id === worker.id;
@@ -202,7 +204,7 @@ const AssignTicket = () => {
                                                 {worker.full_name}
                                             </Text>
                                             <Text style={styles.workerSpecialty}>
-                                                {worker.specialty || 'General'}{worker.years_experience ? ` · ${worker.years_experience}y exp` : ''}
+                                                {worker.specialty || t('general')}{worker.years_experience ? ` · ${worker.years_experience}y exp` : ''}
                                             </Text>
                                         </View>
                                         {isSelected && (
@@ -226,7 +228,7 @@ const AssignTicket = () => {
                 >
                     {submitting
                         ? <ActivityIndicator color="#fff" />
-                        : <Text style={styles.assignBtnText}>Assign Ticket</Text>
+                        : <Text style={styles.assignBtnText}>{t('assignTicketBtn')}</Text>
                     }
                 </TouchableOpacity>
             </View>
