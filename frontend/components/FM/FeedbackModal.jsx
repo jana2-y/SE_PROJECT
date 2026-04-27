@@ -85,215 +85,215 @@ const FeedbackModal = ({ visible, ticketId, token, onClose }) => {
 
     return (
         <>
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <KeyboardAvoidingView
-                style={styles.overlay}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            >
-                <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+            <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+                <KeyboardAvoidingView
+                    style={styles.overlay}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
-                <View style={styles.sheet}>
-                    <View style={styles.handle} />
+                    <View style={styles.sheet}>
+                        <View style={styles.handle} />
 
-                    {loading ? (
-                        <View style={styles.centered}>
-                            <ActivityIndicator size="large" color={c.primary} />
-                        </View>
-                    ) : (
-                        <ScrollView
-                            style={styles.scroll}
-                            keyboardShouldPersistTaps="handled"
-                            showsVerticalScrollIndicator={false}
-                        >
-                            {/* Ticket details */}
-                            <View style={styles.ticketDetails}>
-                                <View style={styles.ticketDetailsRow}>
-                                    <Text style={styles.detailsCategory}>
-                                        {ticket?.category?.toUpperCase()}
-                                    </Text>
-                                    <TouchableOpacity onPress={onClose}>
-                                        <Text style={styles.closeX}>✕</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <Text style={styles.detailsLocation}>
-                                    {[ticket?.area, ticket?.building, ticket?.floor, ticket?.specific_location]
-                                        .filter(Boolean).join(' · ')}
-                                </Text>
-                                <View style={styles.descriptionRow}>
-                                    <Text style={styles.detailsDescription} numberOfLines={3}>
-                                        {ticket?.description}
-                                    </Text>
-                                    {ticket?.image_url && (
-                                        <TouchableOpacity onPress={() => setImagePreviewVisible(true)}>
-                                            <Image
-                                                source={{ uri: ticket.image_url }}
-                                                style={styles.ticketThumb}
-                                                resizeMode="cover"
-                                            />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
+                        {loading ? (
+                            <View style={styles.centered}>
+                                <ActivityIndicator size="large" color={c.primary} />
                             </View>
-
-                            {/* Proof container */}
-                            <View style={styles.proofContainer}>
-                                <View style={styles.proofRow}>
-                                    {/* Proof image */}
-                                    <View style={styles.proofImageWrap}>
-                                        {assignment?.proof_url ? (
-                                            <Image
-                                                source={{ uri: assignment.proof_url }}
-                                                style={styles.proofImage}
-                                                resizeMode="cover"
-                                            />
-                                        ) : (
-                                            <View style={[styles.proofImage, styles.proofImagePlaceholder]}>
-                                                <Text style={styles.placeholderText}>{t('noImage')}</Text>
-                                            </View>
+                        ) : (
+                            <ScrollView
+                                style={styles.scroll}
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={false}
+                            >
+                                {/* Ticket details */}
+                                <View style={styles.ticketDetails}>
+                                    <View style={styles.ticketDetailsRow}>
+                                        <Text style={styles.detailsCategory}>
+                                            {ticket?.category?.toUpperCase()}
+                                        </Text>
+                                        <TouchableOpacity onPress={onClose}>
+                                            <Text style={styles.closeX}>✕</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <Text style={styles.detailsLocation}>
+                                        {[ticket?.area, ticket?.floor, ticket?.specific_location]
+                                            .filter(Boolean).join(' · ')}
+                                    </Text>
+                                    <View style={styles.descriptionRow}>
+                                        <Text style={styles.detailsDescription} numberOfLines={3}>
+                                            {ticket?.description}
+                                        </Text>
+                                        {ticket?.image_url && (
+                                            <TouchableOpacity onPress={() => setImagePreviewVisible(true)}>
+                                                <Image
+                                                    source={{ uri: ticket.image_url }}
+                                                    style={styles.ticketThumb}
+                                                    resizeMode="cover"
+                                                />
+                                            </TouchableOpacity>
                                         )}
                                     </View>
+                                </View>
 
-                                    {/* Right column: worker note + actions */}
-                                    <View style={styles.proofTextWrap}>
-                                        <Text style={styles.proofTextLabel}>{t('workersNote')}</Text>
-                                        <ScrollView style={styles.proofTextScroll} nestedScrollEnabled>
-                                            <Text style={styles.proofTextContent}>
-                                                {assignment?.worker_note || t('noDescription')}
-                                            </Text>
-                                        </ScrollView>
-
-                                        {/* Accept / Reject */}
-                                        <View style={styles.actionRow}>
-                                            <TouchableOpacity
-                                                style={[styles.acceptBtn, action === 'accept' && styles.acceptBtnActive]}
-                                                onPress={() => { setAction('accept'); setFeedbackText(''); }}
-                                            >
-                                                <Text style={[styles.acceptBtnText, action === 'accept' && styles.acceptBtnTextActive]}>
-                                                    {t('accept')}
-                                                </Text>
-                                            </TouchableOpacity>
-
-                                            <TouchableOpacity
-                                                style={[styles.rejectBtn, action === 'reject' && styles.rejectBtnActive]}
-                                                onPress={() => { setAction('reject'); setFeedbackText(''); }}
-                                            >
-                                                <Text style={[styles.rejectBtnText, action === 'reject' && styles.rejectBtnTextActive]}>
-                                                    {t('reject')}
-                                                </Text>
-                                            </TouchableOpacity>
+                                {/* Proof container */}
+                                <View style={styles.proofContainer}>
+                                    <View style={styles.proofRow}>
+                                        {/* Proof image */}
+                                        <View style={styles.proofImageWrap}>
+                                            {assignment?.proof_url ? (
+                                                <Image
+                                                    source={{ uri: assignment.proof_url }}
+                                                    style={styles.proofImage}
+                                                    resizeMode="cover"
+                                                />
+                                            ) : (
+                                                <View style={[styles.proofImage, styles.proofImagePlaceholder]}>
+                                                    <Text style={styles.placeholderText}>{t('noImage')}</Text>
+                                                </View>
+                                            )}
                                         </View>
 
-                                        {/* Feedback input */}
-                                        {action && (
-                                            <View style={styles.feedbackWrap}>
-                                                <View style={styles.feedbackLabelRow}>
-                                                    <Text style={styles.feedbackLabel}>
-                                                        {action === 'reject' ? t('rejectionReason') : t('optionalNote')}
-                                                    </Text>
-                                                    {action === 'reject' && (
-                                                        <Text style={styles.requiredTag}>{t('required')}</Text>
-                                                    )}
-                                                    <Text style={[styles.wordCount, wordCount > 50 && styles.wordCountOver]}>
-                                                        {wordCount}/50
-                                                    </Text>
-                                                </View>
+                                        {/* Right column: worker note + actions */}
+                                        <View style={styles.proofTextWrap}>
+                                            <Text style={styles.proofTextLabel}>{t('workersNote')}</Text>
+                                            <ScrollView style={styles.proofTextScroll} nestedScrollEnabled>
+                                                <Text style={styles.proofTextContent}>
+                                                    {assignment?.worker_note || t('noDescription')}
+                                                </Text>
+                                            </ScrollView>
 
-                                                <TextInput
-                                                    style={[styles.feedbackInput, wordCount > 50 && styles.feedbackInputOver]}
-                                                    placeholder={action === 'reject' ? t('rejectionPlaceholder') : t('optionalNotePlaceholder')}
-                                                    placeholderTextColor={c.textSub}
-                                                    multiline
-                                                    value={feedbackText}
-                                                    onChangeText={setFeedbackText}
-                                                />
+                                            {/* Accept / Reject */}
+                                            <View style={styles.actionRow}>
+                                                <TouchableOpacity
+                                                    style={[styles.acceptBtn, action === 'accept' && styles.acceptBtnActive]}
+                                                    onPress={() => { setAction('accept'); setFeedbackText(''); }}
+                                                >
+                                                    <Text style={[styles.acceptBtnText, action === 'accept' && styles.acceptBtnTextActive]}>
+                                                        {t('accept')}
+                                                    </Text>
+                                                </TouchableOpacity>
 
-                                                {action === 'reject' && (
-                                                    <View style={styles.deadlineWrap}>
-                                                        <Text style={styles.feedbackLabel}>{t('newDeadline')}</Text>
-                                                        {Platform.OS === 'web' ? (
-                                                            <input
-                                                                type="date"
-                                                                value={newDeadline.toISOString().split('T')[0]}
-                                                                min={new Date().toISOString().split('T')[0]}
-                                                                onChange={e => e.target.value && setNewDeadline(new Date(e.target.value))}
-                                                                style={{
-                                                                    marginTop: 6, padding: 10, borderRadius: 4,
-                                                                    border: '1px solid #9CA3AF',
-                                                                    backgroundColor: c.inputBg, color: c.text,
-                                                                    fontSize: 13, width: '100%', boxSizing: 'border-box',
-                                                                    cursor: 'pointer',
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <>
-                                                                <TouchableOpacity
-                                                                    style={styles.deadlinePicker}
-                                                                    onPress={() => setShowDatePicker(true)}
-                                                                >
-                                                                    <Text style={styles.deadlinePickerText}>
-                                                                        {newDeadline.toLocaleDateString('en-GB', {
-                                                                            day: '2-digit', month: 'short', year: 'numeric'
-                                                                        })}
-                                                                    </Text>
-                                                                    <Text style={styles.deadlinePickerIcon}>📅</Text>
-                                                                </TouchableOpacity>
-                                                                {showDatePicker && (
-                                                                    <DateTimePicker
-                                                                        value={newDeadline}
-                                                                        mode="date"
-                                                                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                                                                        minimumDate={new Date()}
-                                                                        onChange={(_, date) => {
-                                                                            setShowDatePicker(Platform.OS === 'ios');
-                                                                            if (date) setNewDeadline(date);
-                                                                        }}
-                                                                    />
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </View>
-                                                )}
+                                                <TouchableOpacity
+                                                    style={[styles.rejectBtn, action === 'reject' && styles.rejectBtnActive]}
+                                                    onPress={() => { setAction('reject'); setFeedbackText(''); }}
+                                                >
+                                                    <Text style={[styles.rejectBtnText, action === 'reject' && styles.rejectBtnTextActive]}>
+                                                        {t('reject')}
+                                                    </Text>
+                                                </TouchableOpacity>
                                             </View>
-                                        )}
+
+                                            {/* Feedback input */}
+                                            {action && (
+                                                <View style={styles.feedbackWrap}>
+                                                    <View style={styles.feedbackLabelRow}>
+                                                        <Text style={styles.feedbackLabel}>
+                                                            {action === 'reject' ? t('rejectionReason') : t('optionalNote')}
+                                                        </Text>
+                                                        {action === 'reject' && (
+                                                            <Text style={styles.requiredTag}>{t('required')}</Text>
+                                                        )}
+                                                        <Text style={[styles.wordCount, wordCount > 50 && styles.wordCountOver]}>
+                                                            {wordCount}/50
+                                                        </Text>
+                                                    </View>
+
+                                                    <TextInput
+                                                        style={[styles.feedbackInput, wordCount > 50 && styles.feedbackInputOver]}
+                                                        placeholder={action === 'reject' ? t('rejectionPlaceholder') : t('optionalNotePlaceholder')}
+                                                        placeholderTextColor={c.textSub}
+                                                        multiline
+                                                        value={feedbackText}
+                                                        onChangeText={setFeedbackText}
+                                                    />
+
+                                                    {action === 'reject' && (
+                                                        <View style={styles.deadlineWrap}>
+                                                            <Text style={styles.feedbackLabel}>{t('newDeadline')}</Text>
+                                                            {Platform.OS === 'web' ? (
+                                                                <input
+                                                                    type="date"
+                                                                    value={newDeadline.toISOString().split('T')[0]}
+                                                                    min={new Date().toISOString().split('T')[0]}
+                                                                    onChange={e => e.target.value && setNewDeadline(new Date(e.target.value))}
+                                                                    style={{
+                                                                        marginTop: 6, padding: 10, borderRadius: 4,
+                                                                        border: '1px solid #9CA3AF',
+                                                                        backgroundColor: c.inputBg, color: c.text,
+                                                                        fontSize: 13, width: '100%', boxSizing: 'border-box',
+                                                                        cursor: 'pointer',
+                                                                    }}
+                                                                />
+                                                            ) : (
+                                                                <>
+                                                                    <TouchableOpacity
+                                                                        style={styles.deadlinePicker}
+                                                                        onPress={() => setShowDatePicker(true)}
+                                                                    >
+                                                                        <Text style={styles.deadlinePickerText}>
+                                                                            {newDeadline.toLocaleDateString('en-GB', {
+                                                                                day: '2-digit', month: 'short', year: 'numeric'
+                                                                            })}
+                                                                        </Text>
+                                                                        <Text style={styles.deadlinePickerIcon}>📅</Text>
+                                                                    </TouchableOpacity>
+                                                                    {showDatePicker && (
+                                                                        <DateTimePicker
+                                                                            value={newDeadline}
+                                                                            mode="date"
+                                                                            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                                                                            minimumDate={new Date()}
+                                                                            onChange={(_, date) => {
+                                                                                setShowDatePicker(Platform.OS === 'ios');
+                                                                                if (date) setNewDeadline(date);
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </View>
+                                                    )}
+                                                </View>
+                                            )}
+                                        </View>
                                     </View>
                                 </View>
+
+                                <View style={{ height: 24 }} />
+                            </ScrollView>
+                        )}
+
+                        {action && !loading && (
+                            <View style={styles.footer}>
+                                {showTooltip && (
+                                    <Text style={styles.tooltip}>{t('tooltipReject')}</Text>
+                                )}
+                                <TouchableOpacity
+                                    style={[styles.submitBtn, isSubmitDisabled && styles.submitBtnDisabled]}
+                                    onPress={handleSubmit}
+                                    disabled={submitting}
+                                    activeOpacity={isSubmitDisabled ? 1 : 0.8}
+                                >
+                                    {submitting
+                                        ? <ActivityIndicator color="#fff" />
+                                        : <Text style={styles.submitBtnText}>{t('submit')}</Text>
+                                    }
+                                </TouchableOpacity>
                             </View>
+                        )}
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
 
-                            <View style={{ height: 24 }} />
-                        </ScrollView>
-                    )}
-
-                    {action && !loading && (
-                        <View style={styles.footer}>
-                            {showTooltip && (
-                                <Text style={styles.tooltip}>{t('tooltipReject')}</Text>
-                            )}
-                            <TouchableOpacity
-                                style={[styles.submitBtn, isSubmitDisabled && styles.submitBtnDisabled]}
-                                onPress={handleSubmit}
-                                disabled={submitting}
-                                activeOpacity={isSubmitDisabled ? 1 : 0.8}
-                            >
-                                {submitting
-                                    ? <ActivityIndicator color="#fff" />
-                                    : <Text style={styles.submitBtnText}>{t('submit')}</Text>
-                                }
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </View>
-            </KeyboardAvoidingView>
-        </Modal>
-
-        <Modal visible={imagePreviewVisible} transparent animationType="fade" onRequestClose={() => setImagePreviewVisible(false)}>
-            <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setImagePreviewVisible(false)}>
-                <Image
-                    source={{ uri: ticket?.image_url }}
-                    style={styles.previewImage}
-                    resizeMode="contain"
-                />
-            </TouchableOpacity>
-        </Modal>
+            <Modal visible={imagePreviewVisible} transparent animationType="fade" onRequestClose={() => setImagePreviewVisible(false)}>
+                <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setImagePreviewVisible(false)}>
+                    <Image
+                        source={{ uri: ticket?.image_url }}
+                        style={styles.previewImage}
+                        resizeMode="contain"
+                    />
+                </TouchableOpacity>
+            </Modal>
         </>
     );
 };

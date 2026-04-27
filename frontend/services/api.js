@@ -13,7 +13,18 @@ const api = {
             ...options.headers,
         };
 
-        const response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+        let response;
+        try {
+            response = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers, signal: controller.signal });
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') throw new Error('Request timed out. Check your connection.');
+            throw err;
+        }
+        clearTimeout(timeoutId);
         const data = await response.json();
 
         if (response.status === 401 && retry) {

@@ -28,6 +28,7 @@
   "pwErrorCurrent": "Please enter your current password.",
   "pwErrorNew": "Please enter a new password.",
   "pwErrorLength": "Password must be at least 6 characters.",
+  "both": "Both",
   "indoor": "Indoor",
   "outdoor": "Outdoor",
   "locationAll": "Location: All",

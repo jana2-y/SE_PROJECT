@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     View, Text, ScrollView, TouchableOpacity, Image,
     StyleSheet, ActivityIndicator, RefreshControl, Alert,
-    Modal, Dimensions
+    Modal, Dimensions, ImageBackground, Animated
 } from 'react-native';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 import { useRouter } from 'expo-router';
 import { Picker } from '@react-native-picker/picker';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,60 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import api from '../../services/api';
 import FeedbackModal from '../../components/FM/FeedbackModal';
+
+// Forest & Cream design tokens
+const FC = {
+    light: {
+        glass: 'rgba(245, 245, 220, 0.72)',
+        glassBorder: 'rgba(255, 255, 255, 0.45)',
+        glassHeader: 'rgba(245, 245, 220, 0.82)',
+        primary: '#154212',
+        primaryContainer: '#2d5a27',
+        onPrimaryContainer: '#9dd090',
+        text: '#191c18',
+        textSub: '#42493e',
+        textFaint: '#72796e',
+        blob1: '#bcf0ae',
+        blob2: '#2d5a27',
+        blob3: '#e1e1c9',
+        btnBg: '#2d5a27',
+        btnText: '#ffffff',
+        success: '#2d5a27',
+        error: '#ba1a1a',
+        categoryBg: 'rgba(255,255,255,0.88)',
+        categoryText: '#154212',
+        segActiveBg: '#2d5a27',
+        segActiveTx: '#9dd090',
+        segInactiveTx: '#154212',
+        divider: 'rgba(0,0,0,0.07)',
+        modalBg: '#f0f2e8',
+    },
+    dark: {
+        glass: 'rgba(10, 26, 10, 0.76)',
+        glassBorder: 'rgba(255, 255, 255, 0.10)',
+        glassHeader: 'rgba(10, 26, 10, 0.84)',
+        primary: '#a1d494',
+        primaryContainer: '#2d5a27',
+        onPrimaryContainer: '#9dd090',
+        text: '#F5F5DC',
+        textSub: 'rgba(245,245,220,0.58)',
+        textFaint: 'rgba(245,245,220,0.38)',
+        blob1: '#2d5a27',
+        blob2: '#154212',
+        blob3: '#1a331a',
+        btnBg: '#2d5a27',
+        btnText: '#9dd090',
+        success: '#2d5a27',
+        error: '#cf6679',
+        categoryBg: 'rgba(10,26,10,0.88)',
+        categoryText: '#a1d494',
+        segActiveBg: '#2d5a27',
+        segActiveTx: '#9dd090',
+        segInactiveTx: 'rgba(245,245,220,0.6)',
+        divider: 'rgba(255,255,255,0.07)',
+        modalBg: '#0d1f0d',
+    },
+};
 
 const PRIORITY_COLORS = {
     low: '#6B7280',
@@ -55,52 +109,80 @@ const FMDashboard = () => {
     const router = useRouter();
     const { t } = useTranslation();
     const { user } = useAuth();
-    const { colors: c } = useTheme();
-    const styles = useMemo(() => makeStyles(c), [c]);
+    const { theme } = useTheme();
+    const fc = FC[theme] || FC.light;
+    const styles = useMemo(() => makeStyles(fc, theme), [fc, theme]);
 
-    const [tickets, setTickets] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [tickets, setTickets]   = useState([]);
+    const [loading, setLoading]   = useState(true);
+    const [fetchError, setFetchError] = useState('');
     const [refreshing, setRefreshing] = useState(false);
-    const [areaType, setAreaType] = useState('indoor');
+    const [areaType, setAreaType] = useState('both');
     const [filterArea, setFilterArea] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
     const [filterStatus, setFilterStatus] = useState('pending');
     const [filterSort, setFilterSort] = useState('recent');
+    const [layoutMode, setLayoutMode] = useState('wide');
     const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
     const [selectedTicketId, setSelectedTicketId] = useState(null);
     const [ticketDetailVisible, setTicketDetailVisible] = useState(false);
     const [selectedDetailTicket, setSelectedDetailTicket] = useState(null);
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
+    const [previewSize, setPreviewSize] = useState(null);
+
+    // Animations
+    const popupAnim = useRef(new Animated.Value(0)).current;
+    const segSlide  = useRef(new Animated.Value(0)).current;
+    const [segWidth, setSegWidth] = useState(0);
+    const AREA_KEYS = ['both', 'indoor', 'outdoor'];
 
     const fetchTickets = useCallback(async () => {
+        setFetchError('');
         try {
             const params = new URLSearchParams();
-            if (filterArea) params.append('area', filterArea);
+            if (areaType !== 'both') params.append('area', areaType);
             if (filterCategory) params.append('category', filterCategory);
             if (filterStatus) params.append('status', filterStatus);
             if (filterSort) params.append('sort', filterSort);
-
             const data = await api.get(`/fm/tickets?${params.toString()}`);
             setTickets(data);
         } catch (err) {
-            Alert.alert('Error', err.message);
+            const msg = err?.message || JSON.stringify(err) || 'Unknown error';
+            console.error('[FM Dashboard] fetchTickets failed:', msg);
+            setFetchError(msg);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [filterArea, filterCategory, filterStatus, filterSort]);
+    }, [areaType, filterArea, filterCategory, filterStatus, filterSort]);
 
     useEffect(() => { fetchTickets(); }, [fetchTickets]);
+
+    useEffect(() => {
+        if (!imagePreviewUrl) { setPreviewSize(null); popupAnim.setValue(0); return; }
+        Image.getSize(imagePreviewUrl, (w, h) => {
+            const maxW = SCREEN_WIDTH * 0.92;
+            const scale = Math.min(1, maxW / w);
+            setPreviewSize({ width: Math.round(w * scale), height: Math.round(h * scale) });
+        }, () => setPreviewSize(null));
+        Animated.spring(popupAnim, {
+            toValue: 1, useNativeDriver: true, tension: 120, friction: 9,
+        }).start();
+    }, [imagePreviewUrl]);
 
     const onRefresh = () => { setRefreshing(true); fetchTickets(); };
 
     const handleAreaTypeChange = (type) => {
+        const idx = AREA_KEYS.indexOf(type);
+        Animated.spring(segSlide, {
+            toValue: idx, useNativeDriver: true, tension: 180, friction: 18,
+        }).start();
         setAreaType(type);
         setFilterArea('');
     };
 
     const handleResetFilters = () => {
-        setAreaType('indoor');
+        setAreaType('both');
         setFilterArea('');
         setFilterCategory('');
         setFilterStatus('pending');
@@ -122,21 +204,16 @@ const FMDashboard = () => {
                 </TouchableOpacity>
             );
         }
-
         if (hasProof && status === 'in_progress') {
             return (
                 <TouchableOpacity
                     style={styles.btnFeedback}
-                    onPress={() => {
-                        setSelectedTicketId(ticket.id);
-                        setFeedbackModalVisible(true);
-                    }}
+                    onPress={() => { setSelectedTicketId(ticket.id); setFeedbackModalVisible(true); }}
                 >
                     <Text style={styles.btnFeedbackText}>{t('feedbackBtn')}</Text>
                 </TouchableOpacity>
             );
         }
-
         if (status === 'completed') {
             return (
                 <View style={styles.completedFooterRow}>
@@ -149,7 +226,6 @@ const FMDashboard = () => {
                 </View>
             );
         }
-
         if (status === 'reassigned') {
             return (
                 <View style={styles.btnAssigned}>
@@ -157,7 +233,6 @@ const FMDashboard = () => {
                 </View>
             );
         }
-
         return (
             <View style={styles.btnAssigned}>
                 <Text style={styles.btnAssignedText}>{t('assigned')}</Text>
@@ -169,7 +244,7 @@ const FMDashboard = () => {
         const priority = ticket.assignments?.[0]?.priority;
         if (!priority) return null;
         return (
-            <View style={[styles.priorityBadge, { backgroundColor: PRIORITY_COLORS[priority] + '20' }]}>
+            <View style={[styles.priorityBadge, { backgroundColor: PRIORITY_COLORS[priority] + '22' }]}>
                 <Text style={[styles.priorityText, { color: PRIORITY_COLORS[priority] }]}>
                     {priority.toUpperCase()}
                 </Text>
@@ -177,166 +252,293 @@ const FMDashboard = () => {
         );
     };
 
-    if (loading) {
-        return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color={c.primary} />
-            </View>
-        );
-    }
+    const locationItems = areaType === 'indoor'
+        ? indoorLocations
+        : areaType === 'outdoor'
+            ? outdoorLocations
+            : [...indoorLocations, ...outdoorLocations];
 
     return (
-        <View style={styles.container}>
-            {/* Filters */}
-            <View style={styles.filtersRow}>
-                <View style={styles.pickerWrap}>
-                    <View style={styles.areaToggleRow}>
-                        <TouchableOpacity
-                            style={[styles.areaToggleBtn, areaType === 'indoor' && styles.areaToggleBtnActive]}
-                            onPress={() => handleAreaTypeChange('indoor')}
-                        >
-                            <Text style={[styles.areaToggleText, areaType === 'indoor' && styles.areaToggleTextActive]}>{t('indoor')}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.areaToggleBtn, areaType === 'outdoor' && styles.areaToggleBtnActive]}
-                            onPress={() => handleAreaTypeChange('outdoor')}
-                        >
-                            <Text style={[styles.areaToggleText, areaType === 'outdoor' && styles.areaToggleTextActive]}>{t('outdoor')}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <Picker selectedValue={filterArea} onValueChange={setFilterArea} style={styles.picker} dropdownIconColor={c.text}>
-                        <Picker.Item label={t('locationAll')} value="" color={c.text} style={styles.pickerItem} />
-                        {(areaType === 'indoor' ? indoorLocations : outdoorLocations).map((loc) => (
-                            <Picker.Item key={loc.value} label={loc.label} value={loc.value} color={c.text} style={styles.pickerItem} />
-                        ))}
-                    </Picker>
-                </View>
-                <View style={styles.pickerWrap}>
-                    <View style={styles.resetRow}>
-                        <TouchableOpacity style={styles.resetBtn} onPress={handleResetFilters}>
-                            <Text style={styles.resetBtnText}>{t('reset')}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <Picker selectedValue={filterCategory} onValueChange={setFilterCategory} style={styles.picker} dropdownIconColor={c.text}>
-                        <Picker.Item label={t('categoryAll')} value="" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('electrical')} value="electrical" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('plumbing')} value="plumbing" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('hvac')} value="hvac" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('structural')} value="structural" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('cleaning')} value="cleaning" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('other')} value="other" color={c.text} style={styles.pickerItem} />
-                    </Picker>
-                </View>
-                <View style={styles.pickerWrap}>
-                    <Picker selectedValue={filterStatus} onValueChange={setFilterStatus} style={styles.picker} dropdownIconColor={c.text}>
-                        <Picker.Item label={t('pending')} value="pending" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('assigned')} value="assigned" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('inProgress')} value="in_progress" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('reassigned')} value="reassigned" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('completed')} value="completed" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('all')} value="" color={c.text} style={styles.pickerItem} />
-                    </Picker>
-                </View>
-                <View style={styles.pickerWrap}>
-                    <Picker selectedValue={filterSort} onValueChange={setFilterSort} style={styles.picker} dropdownIconColor={c.text}>
-                        <Picker.Item label={t('mostRecent')} value="recent" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('leastRecent')} value="oldest" color={c.text} style={styles.pickerItem} />
-                        <Picker.Item label={t('mostPopular')} value="popular" color={c.text} style={styles.pickerItem} />
-                    </Picker>
-                </View>
+        <ImageBackground
+            source={theme === 'dark'
+                ? require('../../assets/images/bg-dark.png')
+                : require('../../assets/images/bg-light.png')}
+            style={styles.bgImage}
+            resizeMode="cover"
+        >
+            {/* Organic blob decorations */}
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                <View style={[styles.blob, styles.blob1, { backgroundColor: fc.blob1 }]} />
+                <View style={[styles.blob, styles.blob2, { backgroundColor: fc.blob2 }]} />
+                <View style={[styles.blob, styles.blob3, { backgroundColor: fc.blob3 }]} />
             </View>
 
-            {/* Ticket List */}
-            <ScrollView
-                style={styles.list}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.primary} />}
-            >
-                {tickets.length === 0 ? (
-                    <View style={styles.empty}>
-                        <Text style={styles.emptyText}>{t('noTickets')}</Text>
-                    </View>
-                ) : (
-                    tickets.map((ticket) => (
-                        <View key={ticket.id} style={styles.card}>
-                            {ticket.image_url ? (
-                                <Image source={{ uri: ticket.image_url }} style={styles.cardImage} resizeMode="contain" />
-                            ) : (
-                                <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
-                                    <Text style={styles.cardImagePlaceholderText}>{t('noImage')}</Text>
-                                </View>
+            {loading ? (
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color={fc.primary} />
+                    {fetchError ? (
+                        <Text style={[styles.emptyText, { marginTop: 16, color: fc.error, textAlign: 'center', paddingHorizontal: 24 }]}>
+                            {fetchError}
+                        </Text>
+                    ) : null}
+                </View>
+            ) : (
+                <>
+                    {/* Filter bar */}
+                    <View style={styles.filterBar}>
+                        {/* Segmented control */}
+                        <View
+                            style={styles.segment}
+                            onLayout={e => setSegWidth(e.nativeEvent.layout.width - 8)}
+                        >
+                            {/* Sliding pill */}
+                            {segWidth > 0 && (
+                                <Animated.View style={[styles.segPill, {
+                                    width: segWidth / 3,
+                                    transform: [{
+                                        translateX: segSlide.interpolate({
+                                            inputRange: [0, 1, 2],
+                                            outputRange: [0, segWidth / 3, (segWidth / 3) * 2],
+                                        }),
+                                    }],
+                                }]} />
                             )}
+                            {[
+                                { key: 'both',    label: t('both') },
+                                { key: 'indoor',  label: t('indoor') },
+                                { key: 'outdoor', label: t('outdoor') },
+                            ].map(({ key, label }) => (
+                                <TouchableOpacity
+                                    key={key}
+                                    style={styles.segBtn}
+                                    onPress={() => handleAreaTypeChange(key)}
+                                >
+                                    <Text style={[styles.segText, areaType === key && styles.segTextActive]}>
+                                        {label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
 
-                            <View style={styles.categoryBadge}>
-                                <Text style={styles.categoryBadgeText}>{ticket.category?.toUpperCase()}</Text>
+                        {/* 2×2 picker grid */}
+                        <View style={styles.pickerGrid}>
+                            <View style={styles.pickerCell}>
+                                <Picker
+                                    selectedValue={filterArea}
+                                    onValueChange={setFilterArea}
+                                    style={styles.picker}
+                                    dropdownIconColor={fc.primary}
+                                >
+                                    <Picker.Item label={t('locationAll')} value="" color={fc.text} />
+                                    {locationItems.map(loc => (
+                                        <Picker.Item key={loc.value} label={loc.label} value={loc.value} color={fc.text} />
+                                    ))}
+                                </Picker>
                             </View>
+                            <View style={styles.pickerCell}>
+                                <Picker
+                                    selectedValue={filterCategory}
+                                    onValueChange={setFilterCategory}
+                                    style={styles.picker}
+                                    dropdownIconColor={fc.primary}
+                                >
+                                    <Picker.Item label={t('categoryAll')} value="" color={fc.text} />
+                                    <Picker.Item label={t('Electrical Issues')} value="Electrical Issues" color={fc.text} />
+                                    <Picker.Item label={t('Plumbing')} value="Plumbing" color={fc.text} />
+                                    <Picker.Item label={t('AC and Heating Issues')} value="AC and Heating Issues" color={fc.text} />
+                                    <Picker.Item label={t('Furniture Damage')} value="Furniture Damage" color={fc.text} />
+                                    <Picker.Item label={t('Cleaning & Housekeeping')} value="Cleaning & Housekeeping" color={fc.text} />
+                                    <Picker.Item label={t('Facilities & Utilities')} value="Facilities & Utilities" color={fc.text} />
+                                    <Picker.Item label={t('Garden/Landscape/Path Issues')} value="Garden/Landscape/Path Issues" color={fc.text} />
+                                </Picker>
+                            </View>
+                            <View style={styles.pickerCell}>
+                                <Picker
+                                    selectedValue={filterStatus}
+                                    onValueChange={setFilterStatus}
+                                    style={styles.picker}
+                                    dropdownIconColor={fc.primary}
+                                >
+                                    <Picker.Item label={t('pending')} value="pending" color={fc.text} />
+                                    <Picker.Item label={t('assigned')} value="assigned" color={fc.text} />
+                                    <Picker.Item label={t('inProgress')} value="in_progress" color={fc.text} />
+                                    <Picker.Item label={t('reassigned')} value="reassigned" color={fc.text} />
+                                    <Picker.Item label={t('completed')} value="completed" color={fc.text} />
+                                    <Picker.Item label={t('all')} value="" color={fc.text} />
+                                </Picker>
+                            </View>
+                            <View style={styles.pickerCell}>
+                                <Picker
+                                    selectedValue={filterSort}
+                                    onValueChange={setFilterSort}
+                                    style={styles.picker}
+                                    dropdownIconColor={fc.primary}
+                                >
+                                    <Picker.Item label={t('mostRecent')} value="recent" color={fc.text} />
+                                    <Picker.Item label={t('leastRecent')} value="oldest" color={fc.text} />
+                                    <Picker.Item label={t('mostPopular')} value="popular" color={fc.text} />
+                                </Picker>
+                            </View>
+                        </View>
 
-                            <View style={styles.cardBody}>
-                                <View style={styles.cardTopRow}>
-                                    <Text style={styles.cardTitle} numberOfLines={2}>
-                                        {ticket.description || 'No description'}
-                                    </Text>
-                                </View>
+                        <View style={styles.filterFooterRow}>
+                            <TouchableOpacity style={styles.resetBtn} onPress={handleResetFilters}>
+                                <Text style={styles.resetBtnText}>{t('reset')}</Text>
+                            </TouchableOpacity>
+                            <View style={styles.layoutToggle}>
+                                {[
+                                    { key: 'wide', icon: '▬' },
+                                    { key: 'grid', icon: '⊞' },
+                                    { key: 'narrow', icon: '▤' },
+                                ].map(({ key, icon }) => (
+                                    <TouchableOpacity
+                                        key={key}
+                                        style={[styles.layoutBtn, layoutMode === key && styles.layoutBtnActive]}
+                                        onPress={() => setLayoutMode(key)}
+                                    >
+                                        <Text style={[styles.layoutBtnText, layoutMode === key && styles.layoutBtnTextActive]}>
+                                            {icon}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    </View>
 
-                                <Text style={styles.cardLocation}>
-                                    {[ticket.area, ticket.building, ticket.floor].filter(Boolean).join(' · ')}
-                                </Text>
-
-                                {ticket.assignments?.[0]?.worker_name && (
-                                    <Text style={styles.cardWorker}>
-                                        {t('workerPrefix')}: {ticket.assignments[0].worker_name}
-                                    </Text>
-                                )}
-
-                                {getPriorityBadge(ticket)}
-
-                                {ticket.status === 'reassigned' && ticket.assignments?.[0] && (() => {
+                    {/* Ticket list */}
+                    <ScrollView
+                        style={styles.list}
+                        contentContainerStyle={[
+                            styles.listContent,
+                            layoutMode === 'grid' && styles.listContentGrid,
+                        ]}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={fc.primary} />}
+                    >
+                        {tickets.length === 0 ? (
+                            <View style={styles.empty}>
+                                <Text style={styles.emptyText}>{t('noTickets')}</Text>
+                            </View>
+                        ) : (
+                            tickets.map((ticket) => {
+                                const reassignBlock = ticket.status === 'reassigned' && ticket.assignments?.[0] && (() => {
                                     const a = ticket.assignments[0];
                                     return (
-                                        <View style={styles.cardReassignRow}>
-                                            <View style={styles.cardReassignText}>
-                                                {a.deadline && (
-                                                    <Text style={styles.cardReassignInfo}>
-                                                        {t('setDeadline')}: {new Date(a.deadline).toLocaleDateString()}
-                                                    </Text>
-                                                )}
-                                                {a.worker_note && (
-                                                    <Text style={styles.cardReassignInfo} numberOfLines={2}>
-                                                        {t('workersNote')}: {a.worker_note}
-                                                    </Text>
-                                                )}
-                                                {a.feedback && (
-                                                    <Text style={styles.cardReassignInfo} numberOfLines={2}>
-                                                        {t('feedbackBtn')}: {a.feedback}
-                                                    </Text>
-                                                )}
-                                                {a.proof_url && (
-                                                    <TouchableOpacity onPress={() => setImagePreviewUrl(a.proof_url)}>
-                                                        <Text style={styles.cardReassignProofLink}>{t('proofLabel')}</Text>
-                                                    </TouchableOpacity>
-                                                )}
+                                        <View style={styles.reassignBox}>
+                                            {a.deadline && <Text style={styles.reassignInfo}>{t('setDeadline')}: {new Date(a.deadline).toLocaleDateString()}</Text>}
+                                            {a.worker_note && <Text style={styles.reassignInfo} numberOfLines={2}>{t('workersNote')}: {a.worker_note}</Text>}
+                                            {a.feedback && <Text style={styles.reassignInfo} numberOfLines={2}>{t('feedbackBtn')}: {a.feedback}</Text>}
+                                            {a.proof_url && (
+                                                <TouchableOpacity onPress={() => setImagePreviewUrl(a.proof_url)}>
+                                                    <Text style={styles.proofLink}>{t('proofLabel')}</Text>
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+                                    );
+                                })();
+
+                                const footer = (
+                                    <>
+                                        <View style={styles.cardDivider} />
+                                        <View style={styles.cardFooter}>
+                                            <Text style={styles.cardDate}>{new Date(ticket.created_at).toLocaleDateString()}</Text>
+                                            {getActionButton(ticket)}
+                                        </View>
+                                    </>
+                                );
+
+                                // ── NARROW: tall card, full-width image on top, body below ──
+                                if (layoutMode === 'narrow') {
+                                    return (
+                                        <View key={ticket.id} style={styles.cardNarrow}>
+                                            {ticket.image_url ? (
+                                                <TouchableOpacity onPress={() => setImagePreviewUrl(ticket.image_url)} activeOpacity={0.85}>
+                                                    <Image source={{ uri: ticket.image_url }} style={styles.cardNarrowImage} resizeMode="cover" />
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <View style={[styles.cardNarrowImage, styles.cardImagePlaceholder]}>
+                                                    <Text style={styles.cardImagePlaceholderText}>{t('noImage')}</Text>
+                                                </View>
+                                            )}
+                                            <View style={styles.categoryBadgeAbsolute}>
+                                                <Text style={styles.categoryBadgeText}>{ticket.category?.toUpperCase()}</Text>
+                                            </View>
+                                            <View style={styles.cardBody}>
+                                                <Text style={styles.cardTitle} numberOfLines={2}>{ticket.description || 'No description'}</Text>
+                                                <Text style={styles.cardLocation}>{[ticket.area, ticket.floor].filter(Boolean).join(' · ')}</Text>
+                                                {ticket.assignments?.[0]?.worker_name && <Text style={styles.cardWorker}>{t('workerPrefix')}: {ticket.assignments[0].worker_name}</Text>}
+                                                {getPriorityBadge(ticket)}
+                                                {reassignBlock}
+                                                {footer}
                                             </View>
                                         </View>
                                     );
-                                })()}
+                                }
 
-                                <Text style={styles.cardDate}>
-                                    {new Date(ticket.created_at).toLocaleDateString()}
-                                </Text>
+                                // ── GRID: 2-per-row, compact ──
+                                if (layoutMode === 'grid') {
+                                    return (
+                                        <View key={ticket.id} style={styles.cardGrid}>
+                                            {ticket.image_url ? (
+                                                <TouchableOpacity onPress={() => setImagePreviewUrl(ticket.image_url)} activeOpacity={0.85}>
+                                                    <Image source={{ uri: ticket.image_url }} style={styles.cardGridImage} resizeMode="cover" />
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <View style={[styles.cardGridImage, styles.cardImagePlaceholder]}>
+                                                    <Text style={styles.cardImagePlaceholderText}>{t('noImage')}</Text>
+                                                </View>
+                                            )}
+                                            <View style={styles.categoryBadgeAbsolute}>
+                                                <Text style={styles.categoryBadgeText}>{ticket.category?.toUpperCase()}</Text>
+                                            </View>
+                                            <View style={styles.cardBody}>
+                                                <Text style={styles.cardTitle} numberOfLines={3}>{ticket.description || 'No description'}</Text>
+                                                <Text style={styles.cardLocation} numberOfLines={1}>{[ticket.area, ticket.floor].filter(Boolean).join(' · ')}</Text>
+                                                {getPriorityBadge(ticket)}
+                                                {footer}
+                                            </View>
+                                        </View>
+                                    );
+                                }
 
-                                <View style={styles.cardFooter}>
-                                    {getActionButton(ticket)}
-                                </View>
-                            </View>
-                        </View>
-                    ))
-                )}
-                <View style={{ height: 100 }} />
-            </ScrollView>
+                                // ── WIDE: current side-by-side layout ──
+                                return (
+                                    <View key={ticket.id} style={styles.card}>
+                                        <View style={styles.cardRow}>
+                                            {ticket.image_url ? (
+                                                <TouchableOpacity onPress={() => setImagePreviewUrl(ticket.image_url)} activeOpacity={0.85}>
+                                                    <Image source={{ uri: ticket.image_url }} style={styles.cardImage} resizeMode="cover" />
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+                                                    <Text style={styles.cardImagePlaceholderText}>{t('noImage')}</Text>
+                                                </View>
+                                            )}
+                                            <View style={styles.cardInfo}>
+                                                <View style={styles.categoryBadge}>
+                                                    <Text style={styles.categoryBadgeText}>{ticket.category?.toUpperCase()}</Text>
+                                                </View>
+                                                <Text style={styles.cardTitle} numberOfLines={2}>{ticket.description || 'No description'}</Text>
+                                                <Text style={styles.cardLocation}>{[ticket.area, ticket.floor].filter(Boolean).join(' · ')}</Text>
+                                                {ticket.assignments?.[0]?.worker_name && <Text style={styles.cardWorker}>{t('workerPrefix')}: {ticket.assignments[0].worker_name}</Text>}
+                                                {getPriorityBadge(ticket)}
+                                            </View>
+                                        </View>
+                                        {reassignBlock}
+                                        {footer}
+                                    </View>
+                                );
+                            })
+                        )}
+                        <View style={{ height: 40 }} />
+                    </ScrollView>
+                </>
+            )}
 
+            {/* Feedback modal */}
             <FeedbackModal
                 visible={feedbackModalVisible}
                 ticketId={selectedTicketId}
-                token={user.token}
+                token={user?.token}
                 onClose={() => {
                     setFeedbackModalVisible(false);
                     setSelectedTicketId(null);
@@ -344,7 +546,7 @@ const FMDashboard = () => {
                 }}
             />
 
-            {/* Ticket Detail Modal */}
+            {/* Ticket detail modal */}
             <Modal
                 visible={ticketDetailVisible}
                 transparent
@@ -359,7 +561,6 @@ const FMDashboard = () => {
                                 const a = t_.assignments?.[0];
                                 return (
                                     <>
-                                        {/* Ticket image */}
                                         {t_.image_url ? (
                                             <TouchableOpacity onPress={() => setImagePreviewUrl(t_.image_url)}>
                                                 <Image source={{ uri: t_.image_url }} style={styles.detailImage} resizeMode="cover" />
@@ -369,37 +570,31 @@ const FMDashboard = () => {
                                                 <Text style={styles.detailPlaceholderText}>{t('noImage')}</Text>
                                             </View>
                                         )}
-
                                         <View style={styles.detailContent}>
-                                            {/* Category badge */}
                                             <View style={styles.detailCategoryBadge}>
                                                 <Text style={styles.detailCategoryText}>{t_.category?.toUpperCase()}</Text>
                                             </View>
-
                                             <Text style={styles.detailDescription}>{t_.description || t('noDescription')}</Text>
-
                                             <Text style={styles.detailLocation}>
-                                                {[t_.area, t_.building, t_.floor, t_.specific_location].filter(Boolean).join(' · ')}
+                                                {[t_.area, t_.floor, t_.specific_location].filter(Boolean).join(' · ')}
                                             </Text>
-
                                             <View style={styles.detailDivider} />
-
-                                            <DetailRow label={t('statusLabel')} value={t_.status?.replace('_', ' ')} textColor={c.textMid} />
-                                            <DetailRow label={t('createdAt')} value={new Date(t_.created_at).toLocaleString()} textColor={c.textMid} />
-                                            {t_.completed_at && <DetailRow label={t('completedAt')} value={new Date(t_.completed_at).toLocaleString()} textColor={c.textMid} />}
-
+                                            <DetailRow label={t('statusLabel')} value={t_.status?.replace('_', ' ')} textColor={fc.textSub} />
+                                            <DetailRow label={t('createdAt')} value={new Date(t_.created_at).toLocaleString()} textColor={fc.textSub} />
+                                            {t_.completed_at && (
+                                                <DetailRow label={t('completedAt')} value={new Date(t_.completed_at).toLocaleString()} textColor={fc.textSub} />
+                                            )}
                                             {a && (
                                                 <>
                                                     <View style={styles.detailDivider} />
-                                                    {a.worker_name && <DetailRow label={t('workerPrefix')} value={a.worker_name} textColor={c.textMid} />}
-                                                    {a.priority && <DetailRow label={t('priority')} value={a.priority.toUpperCase()} valueColor={PRIORITY_COLORS[a.priority]} textColor={c.textMid} />}
-                                                    {a.deadline && <DetailRow label={t('setDeadline')} value={new Date(a.deadline).toLocaleString()} textColor={c.textMid} />}
-                                                    {a.worker_note && <DetailRow label={t('workersNote')} value={a.worker_note} textColor={c.textMid} />}
-                                                    {a.feedback && <DetailRow label={t('feedbackBtn')} value={a.feedback} textColor={c.textMid} />}
-
+                                                    {a.worker_name && <DetailRow label={t('workerPrefix')} value={a.worker_name} textColor={fc.textSub} />}
+                                                    {a.priority && <DetailRow label={t('priority')} value={a.priority.toUpperCase()} valueColor={PRIORITY_COLORS[a.priority]} textColor={fc.textSub} />}
+                                                    {a.deadline && <DetailRow label={t('setDeadline')} value={new Date(a.deadline).toLocaleString()} textColor={fc.textSub} />}
+                                                    {a.worker_note && <DetailRow label={t('workersNote')} value={a.worker_note} textColor={fc.textSub} />}
+                                                    {a.feedback && <DetailRow label={t('feedbackBtn')} value={a.feedback} textColor={fc.textSub} />}
                                                     {a.proof_url && (
                                                         <View style={styles.detailProofWrap}>
-                                                            <Text style={[styles.detailLabel, { color: c.textMid }]}>{t('proofLabel')}</Text>
+                                                            <Text style={[styles.detailLabel, { color: fc.textSub }]}>{t('proofLabel')}</Text>
                                                             <TouchableOpacity onPress={() => setImagePreviewUrl(a.proof_url)}>
                                                                 <Image source={{ uri: a.proof_url }} style={styles.detailProofImage} resizeMode="cover" />
                                                             </TouchableOpacity>
@@ -421,80 +616,325 @@ const FMDashboard = () => {
 
             {/* Image preview modal */}
             <Modal visible={!!imagePreviewUrl} transparent animationType="fade" onRequestClose={() => setImagePreviewUrl(null)}>
-                <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={() => setImagePreviewUrl(null)}>
-                    <Image source={{ uri: imagePreviewUrl }} style={styles.previewImage} resizeMode="contain" />
-                </TouchableOpacity>
+                <View style={styles.previewOverlay}>
+                    {/* Tap backdrop to close */}
+                    <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setImagePreviewUrl(null)} />
+                    {/* Outer glass layer */}
+                    <Animated.View style={[styles.previewOuter, {
+                        opacity: popupAnim,
+                        transform: [{ scale: popupAnim.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }) }],
+                    }]}>
+                        <TouchableOpacity style={styles.previewCloseBtn} onPress={() => setImagePreviewUrl(null)}>
+                            <Text style={styles.previewCloseTxt}>✕</Text>
+                        </TouchableOpacity>
+                        {/* Inner image layer */}
+                        <View style={styles.previewInner}>
+                            <Image
+                                source={{ uri: imagePreviewUrl }}
+                                style={[
+                                    styles.previewImage,
+                                    previewSize && { aspectRatio: previewSize.width / previewSize.height },
+                                ]}
+                                resizeMode="contain"
+                            />
+                        </View>
+                    </Animated.View>
+                </View>
             </Modal>
-        </View>
+        </ImageBackground>
     );
 };
 
-const makeStyles = (c) => StyleSheet.create({
-    container: { flex: 1, backgroundColor: c.bg },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: c.bg },
-    filtersRow: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: c.filtersBg, borderBottomWidth: 1, borderColor: c.border, paddingHorizontal: 8, paddingVertical: 4 },
-    pickerWrap: { width: '50%', borderWidth: 1, borderColor: c.border, borderRadius: 4, marginVertical: 4, paddingHorizontal: 4, backgroundColor: c.surface },
-    picker: { height: 44, fontSize: 13, color: c.text, backgroundColor: c.surface },
-    pickerItem: { backgroundColor: c.surface, color: c.text },
-    areaToggleRow: { flexDirection: 'row', marginTop: 4, marginBottom: 2 },
-    areaToggleBtn: { flex: 1, paddingVertical: 4, alignItems: 'center', borderRadius: 4, borderWidth: 1, borderColor: c.border, marginHorizontal: 2, backgroundColor: c.inputBg },
-    resetRow: { alignItems: 'flex-start', marginTop: 4, marginBottom: 2, marginHorizontal: 10 },
-    resetBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 4, borderWidth: 1, borderColor: c.border, backgroundColor: c.inputBg },
-    resetBtnText: { fontSize: 12, fontWeight: '600', color: c.textSub },
-    areaToggleBtnActive: { backgroundColor: c.btnBg, borderColor: c.btnBg },
-    areaToggleText: { fontSize: 12, fontWeight: '600', color: c.textSub },
-    areaToggleTextActive: { color: c.btnText },
-    list: { flex: 1, paddingHorizontal: 12, paddingTop: 12 },
+const makeStyles = (fc, theme) => StyleSheet.create({
+    bgImage: { flex: 1, width: '100%', height: '100%' },
+
+    // Organic blobs
+    blob: { position: 'absolute', borderRadius: 9999, opacity: 0.38 },
+    blob1: { width: SCREEN_WIDTH * 0.85, height: SCREEN_WIDTH * 0.85, top: -SCREEN_WIDTH * 0.22, left: -SCREEN_WIDTH * 0.22 },
+    blob2: { width: SCREEN_WIDTH * 0.65, height: SCREEN_WIDTH * 0.65, top: '42%', right: -SCREEN_WIDTH * 0.18 },
+    blob3: { width: SCREEN_WIDTH * 0.55, height: SCREEN_WIDTH * 0.55, bottom: -SCREEN_WIDTH * 0.12, left: '18%' },
+
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+    // Filter bar — glass header
+    filterBar: {
+        backgroundColor: fc.glassHeader,
+        borderBottomWidth: 1,
+        borderColor: fc.glassBorder,
+        paddingHorizontal: 14,
+        paddingTop: 10,
+        paddingBottom: 8,
+    },
+
+    // Segmented control
+    segment: {
+        flexDirection: 'row',
+        backgroundColor: fc.glass,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: fc.glassBorder,
+        padding: 4,
+        marginBottom: 10,
+    },
+    segPill: {
+        position: 'absolute',
+        top: 0, bottom: 0,
+        borderRadius: 16,
+        backgroundColor: fc.segActiveBg,
+        shadowColor: '#2d5a27',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+        elevation: 3,
+    },
+    segBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 16, zIndex: 1 },
+    segBtnActive: {},
+    segText: { fontSize: 13, fontWeight: '600', color: fc.segInactiveTx, letterSpacing: 0.2 },
+    segTextActive: { color: fc.segActiveTx },
+
+    // Picker grid
+    pickerGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 8, rowGap: 6, marginBottom: 8 },
+    pickerCell: {
+        width: '48.5%',
+        backgroundColor: theme === 'dark' ? 'rgba(45, 90, 39, 0.35)' : 'rgba(188, 240, 174, 0.55)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: theme === 'dark' ? 'rgba(161, 212, 148, 0.3)' : 'rgba(45, 90, 39, 0.25)',
+        overflow: 'hidden',
+    },
+    picker: {
+        height: 42,
+        fontSize: 12,
+        color: fc.text,
+        backgroundColor: theme === 'dark' ? 'rgba(45, 90, 39, 0.35)' : 'rgba(188, 240, 174, 0.55)',
+    },
+
+    // Reset
+    resetBtn: {
+        alignSelf: 'flex-end',
+        backgroundColor: fc.glass,
+        borderWidth: 1,
+        borderColor: fc.glassBorder,
+        paddingHorizontal: 14,
+        paddingVertical: 5,
+        borderRadius: 20,
+    },
+    resetBtnText: { fontSize: 12, fontWeight: '600', color: fc.primary, letterSpacing: 0.3 },
+
+    // Layout toggle
+    filterFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    layoutToggle: { flexDirection: 'row', backgroundColor: fc.glass, borderRadius: 16, borderWidth: 1, borderColor: fc.glassBorder, overflow: 'hidden' },
+    layoutBtn: { paddingHorizontal: 11, paddingVertical: 5 },
+    layoutBtnActive: { backgroundColor: fc.segActiveBg },
+    layoutBtnText: { fontSize: 14, color: fc.segInactiveTx },
+    layoutBtnTextActive: { color: fc.segActiveTx },
+
+    // List
+    list: { flex: 1 },
+    listContent: { paddingHorizontal: 16, paddingTop: 14 },
+    listContentGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, paddingHorizontal: 16, paddingTop: 14 },
     empty: { alignItems: 'center', marginTop: 60 },
-    emptyText: { color: c.textSub, fontSize: 15 },
-    card: { backgroundColor: c.card, borderRadius: 8, borderWidth: 1, borderColor: c.border, marginBottom: 16, overflow: 'hidden', marginHorizontal: '20%' },
-    cardImage: { width: '100%', height: 260 },
-    cardImagePlaceholder: { backgroundColor: c.border, justifyContent: 'center', alignItems: 'center' },
-    cardImagePlaceholderText: { color: c.textSub, fontSize: 13 },
-    categoryBadge: { position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(255,255,255,0.92)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
-    categoryBadgeText: { fontSize: 10, fontWeight: '700', color: '#181C22', letterSpacing: 1 },
-    cardBody: { padding: 14 },
-    cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-    cardTitle: { fontSize: 15, fontWeight: '600', color: c.text, flex: 1, marginRight: 8 },
+    emptyText: { color: fc.textSub, fontSize: 15 },
+
+    // Glass ticket card
+    card: {
+        backgroundColor: fc.glass,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: fc.glassBorder,
+        marginBottom: 16,
+        padding: 16,
+        shadowColor: '#2d5a27',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.14,
+        shadowRadius: 20,
+        elevation: 4,
+    },
+    // Wide layout
+    cardRow: { flexDirection: 'row', gap: 14, marginBottom: 10 },
+    cardImage: { width: 80, height: 80, borderRadius: 16, flexShrink: 0 },
+    cardInfo: { flex: 1 },
+
+    // Narrow layout (tall, full-width image on top)
+    cardNarrow: {
+        backgroundColor: fc.glass,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: fc.glassBorder,
+        marginBottom: 16,
+        marginHorizontal: '18%',
+        overflow: 'hidden',
+        shadowColor: '#2d5a27',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.14,
+        shadowRadius: 20,
+        elevation: 4,
+    },
+    cardNarrowImage: { width: '100%', height: 220 },
+
+    // Grid layout (2 per row)
+    cardGrid: {
+        backgroundColor: fc.glass,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: fc.glassBorder,
+        marginBottom: 10,
+        width: (SCREEN_WIDTH - 42) / 2,
+        overflow: 'hidden',
+        shadowColor: '#2d5a27',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+        elevation: 3,
+    },
+    cardGridImage: { width: '100%', height: 130 },
+
+    // Shared body (narrow + grid)
+    cardBody: { padding: 12 },
+
+    // Category badge for top-image layouts (absolute overlay)
+    categoryBadgeAbsolute: {
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        backgroundColor: fc.categoryBg,
+        paddingHorizontal: 7,
+        paddingVertical: 3,
+        borderRadius: 20,
+        zIndex: 2,
+    },
+
+    cardImagePlaceholder: { backgroundColor: fc.glassBorder, justifyContent: 'center', alignItems: 'center' },
+    cardImagePlaceholderText: { color: fc.textSub, fontSize: 10 },
+
+    categoryBadge: {
+        alignSelf: 'flex-start',
+        backgroundColor: fc.categoryBg,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 20,
+        marginBottom: 5,
+    },
+    categoryBadgeText: { fontSize: 9, fontWeight: '700', color: fc.categoryText, letterSpacing: 0.8 },
+
+    cardTitle: { fontSize: 14, fontWeight: '600', color: fc.text, lineHeight: 20, marginBottom: 3 },
+    cardLocation: { fontSize: 12, color: fc.textSub, marginBottom: 2 },
+    cardWorker: { fontSize: 12, color: fc.textSub },
+
+    priorityBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 8 },
     priorityText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-    cardLocation: { fontSize: 13, color: c.textMid, marginBottom: 4 },
-    cardWorker: { fontSize: 13, color: c.textMid, marginBottom: 4 },
-    cardReassignRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-    cardReassignText: { flexShrink: 1 },
-    cardReassignInfo: { fontSize: 12, color: c.textMid, marginBottom: 3 },
-    cardReassignProofLink: { fontSize: 12, color: c.primary, textDecorationLine: 'underline', marginTop: 2 },
-    cardDate: { fontSize: 12, color: c.textSub, marginBottom: 12 },
-    cardFooter: { alignItems: 'flex-end' },
-    btnAssign: { backgroundColor: c.btnBg, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 4 },
-    btnAssignText: { color: c.btnText, fontWeight: '700', fontSize: 14 },
-    btnAssigned: { backgroundColor: c.border, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 4 },
-    btnAssignedText: { color: c.textSub, fontWeight: '700', fontSize: 14 },
-    btnFeedback: { backgroundColor: c.success, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 4 },
-    btnFeedbackText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-    viewTicketLink: { fontSize: 13, color: c.primary, textDecorationLine: 'underline', fontWeight: '600', marginRight: 10 },
+
+    reassignBox: { backgroundColor: fc.divider, borderRadius: 10, padding: 10, marginBottom: 8 },
+    reassignInfo: { fontSize: 12, color: fc.textSub, marginBottom: 3 },
+    proofLink: { fontSize: 12, color: fc.primary, textDecorationLine: 'underline', marginTop: 2 },
+
+    cardDivider: { height: 1, backgroundColor: fc.divider, marginVertical: 10 },
+    cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    cardDate: { fontSize: 12, color: fc.textFaint },
+
+    // Action buttons
+    btnAssign: {
+        backgroundColor: fc.btnBg,
+        paddingHorizontal: 20,
+        paddingVertical: 9,
+        borderRadius: 20,
+        shadowColor: '#2d5a27',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    btnAssignText: { color: fc.btnText, fontWeight: '700', fontSize: 13, letterSpacing: 0.2 },
+
+    btnAssigned: {
+        paddingHorizontal: 20,
+        paddingVertical: 9,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: fc.glassBorder,
+    },
+    btnAssignedText: { color: fc.textSub, fontWeight: '700', fontSize: 13 },
+
+    btnFeedback: {
+        backgroundColor: fc.success,
+        paddingHorizontal: 20,
+        paddingVertical: 9,
+        borderRadius: 20,
+        shadowColor: '#2d5a27',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    btnFeedbackText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+    viewTicketLink: { fontSize: 13, color: fc.primary, textDecorationLine: 'underline', fontWeight: '600', marginRight: 10 },
     completedFooterRow: { flexDirection: 'row', alignItems: 'center' },
-    btnCompleted: { backgroundColor: c.border, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 4 },
-    btnCompletedText: { color: c.textSub, fontWeight: '700', fontSize: 14 },
-    priorityBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, alignSelf: 'flex-start', marginBottom: 6 },
+    btnCompleted: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, borderWidth: 1, borderColor: fc.glassBorder },
+    btnCompletedText: { color: fc.textSub, fontWeight: '700', fontSize: 13 },
+
     // Detail modal
     detailOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-    detailBox: { backgroundColor: c.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: SCREEN_HEIGHT * 0.88 },
-    detailImage: { width: 100, height: 100, borderRadius: 6, alignSelf: 'flex-start', marginBottom: 4 },
-    detailImagePlaceholder: { backgroundColor: c.border, justifyContent: 'center', alignItems: 'center' },
-    detailPlaceholderText: { color: c.textSub, fontSize: 13 },
+    detailBox: {
+        backgroundColor: fc.modalBg,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: SCREEN_HEIGHT * 0.88,
+        borderTopWidth: 1,
+        borderLeftWidth: 1,
+        borderRightWidth: 1,
+        borderColor: fc.glassBorder,
+    },
+    detailImage: { width: 100, height: 100, borderRadius: 12, alignSelf: 'flex-start', marginBottom: 4 },
+    detailImagePlaceholder: { backgroundColor: fc.glassBorder, justifyContent: 'center', alignItems: 'center' },
+    detailPlaceholderText: { color: fc.textSub, fontSize: 13 },
     detailContent: { padding: 16 },
-    detailCategoryBadge: { alignSelf: 'flex-start', backgroundColor: c.btnBg + '22', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 4, marginBottom: 8 },
-    detailCategoryText: { fontSize: 11, fontWeight: '700', color: c.btnBg, letterSpacing: 1 },
-    detailDescription: { fontSize: 16, fontWeight: '600', color: c.text, marginBottom: 6 },
-    detailLocation: { fontSize: 13, color: c.textMid, marginBottom: 12 },
-    detailDivider: { height: 1, backgroundColor: c.border, marginVertical: 12 },
-    detailLabel: { fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 6 },
+    detailCategoryBadge: { alignSelf: 'flex-start', backgroundColor: fc.btnBg + '28', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 8 },
+    detailCategoryText: { fontSize: 11, fontWeight: '700', color: fc.primary, letterSpacing: 0.8 },
+    detailDescription: { fontSize: 16, fontWeight: '600', color: fc.text, marginBottom: 6 },
+    detailLocation: { fontSize: 13, color: fc.textSub, marginBottom: 12 },
+    detailDivider: { height: 1, backgroundColor: fc.divider, marginVertical: 12 },
+    detailLabel: { fontSize: 13, fontWeight: '700', color: fc.textSub, marginBottom: 6 },
     detailProofWrap: { marginTop: 8 },
-    detailProofImage: { width: 100, height: 100, borderRadius: 6, marginTop: 4 },
-    previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-    previewImage: { width: '90%', aspectRatio: 1, borderRadius: 8 },
-    detailCloseBtn: { margin: 16, backgroundColor: c.btnBg, paddingVertical: 14, borderRadius: 8, alignItems: 'center' },
-    detailCloseBtnText: { color: c.btnText, fontWeight: '700', fontSize: 15 },
+    detailProofImage: { width: 100, height: 100, borderRadius: 12, marginTop: 4 },
+    detailCloseBtn: { margin: 16, backgroundColor: fc.btnBg, paddingVertical: 14, borderRadius: 20, alignItems: 'center' },
+    detailCloseBtnText: { color: fc.btnText, fontWeight: '700', fontSize: 15 },
+
+    // Image preview
+    previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center' },
+    previewOuter: {
+        width: SCREEN_WIDTH * 0.88,
+        backgroundColor: fc.glass,
+        borderRadius: 28,
+        borderWidth: 1,
+        borderColor: fc.glassBorder,
+        padding: 15,
+        shadowColor: '#2d5a27',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.25,
+        shadowRadius: 32,
+        elevation: 12,
+    },
+    previewCloseBtn: {
+        alignSelf: 'flex-end',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: fc.btnBg,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    previewCloseTxt: { color: fc.btnText, fontSize: 14, fontWeight: '700' },
+    previewInner: {
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: theme === 'dark' ? 'rgba(161,212,148,0.2)' : 'rgba(45,90,39,0.15)',
+        overflow: 'hidden',
+        backgroundColor: fc.divider,
+        maxHeight: SCREEN_HEIGHT * 0.7,
+    },
+    previewImage: { width: '100%', height: '100%' },
 });
 
 export default FMDashboard;

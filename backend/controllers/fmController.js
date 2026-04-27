@@ -13,7 +13,6 @@ const getTickets = asyncHandler(async (req, res) => {
       id,
       category,
       area,
-      building,
       floor,
       specific_location,
       description,
@@ -40,21 +39,28 @@ const getTickets = asyncHandler(async (req, res) => {
   if (area) query = query.eq('area', area);
   if (category) query = query.eq('category', category);
 
-  if (sort === 'oldest') {
-    query = query.order('created_at', { ascending: true });
-  } else if (sort === 'popular') {
-    query = query.order('category', { ascending: true }).order('area', { ascending: true });
-  } else {
-    query = query.order('created_at', { ascending: false });
+  if (sort !== 'popular') {
+    query = query.order('created_at', { ascending: sort === 'oldest' });
   }
 
   const { data, error } = await query;
-  console.log('data:', JSON.stringify(data, null, 2));
-  console.log('error:', error);
 
   if (error) {
     res.status(500);
     throw new Error(error.message);
+  }
+
+  if (sort === 'popular') {
+    const popularityMap = {};
+    data.forEach(ticket => {
+      const key = `${ticket.category}__${ticket.area}`;
+      popularityMap[key] = (popularityMap[key] || 0) + 1;
+    });
+    data.sort((a, b) => {
+      const keyA = `${a.category}__${a.area}`;
+      const keyB = `${b.category}__${b.area}`;
+      return popularityMap[keyB] - popularityMap[keyA];
+    });
   }
 
   res.status(200).json(data);
@@ -72,7 +78,6 @@ const getTicketById = asyncHandler(async (req, res) => {
       id,
       category,
       area,
-      building,
       floor,
       specific_location,
       description,
@@ -394,7 +399,7 @@ const submitFeedback = asyncHandler(async (req, res) => {
 
       const { error: pointsError } = await supabase.rpc('increment_points', {
         user_id: ticketCreator.created_by,
-        amount:  pointsToAward,
+        amount: pointsToAward,
       });
 
       if (pointsError) console.error('Points award failed:', pointsError.message);
