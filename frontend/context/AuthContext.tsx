@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type UserRole = 'community_member' | 'facility_manager' | 'worker';
+type UserRole = 'community_member' | 'facility_manager' | 'worker' | 'admin';
 
 type User = {
     token: string;
