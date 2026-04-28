@@ -2,6 +2,7 @@ import express from 'express';
 import {
     getTickets,
     getTicketById,
+    getTicketAssignments,
     getWorkers,
     assignTicket,
     submitFeedback,
@@ -18,6 +19,7 @@ router.use(protect);
 router.use(authorize('facility_manager'));
 
 router.get('/tickets', getTickets);
+router.get('/tickets/:id/assignments', getTicketAssignments);
 router.get('/tickets/:id', getTicketById);
 router.patch('/tickets/:id/assign', assignTicket);
 router.patch('/tickets/:id/feedback', submitFeedback);

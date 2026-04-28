@@ -2,69 +2,66 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
     View, Text, ScrollView, TouchableOpacity, Image,
     StyleSheet, ActivityIndicator, RefreshControl, Alert,
-    Modal, Dimensions, ImageBackground, Animated
+    Modal, Dimensions, ImageBackground, Animated, TextInput
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
-import { useRouter } from 'expo-router';
-import { Picker } from '@react-native-picker/picker';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import api from '../../services/api';
 import FeedbackModal from '../../components/FM/FeedbackModal';
+import FMNavBar from '../../components/FM/FMNavBar';
 
-// Forest & Cream design tokens
+// Velvet & Gold Glass design tokens
 const FC = {
     light: {
-        glass: 'rgba(245, 245, 220, 0.72)',
-        glassBorder: 'rgba(255, 255, 255, 0.45)',
-        glassHeader: 'rgba(245, 245, 220, 0.82)',
-        primary: '#154212',
-        primaryContainer: '#2d5a27',
-        onPrimaryContainer: '#9dd090',
-        text: '#191c18',
-        textSub: '#42493e',
-        textFaint: '#72796e',
-        blob1: '#bcf0ae',
-        blob2: '#2d5a27',
-        blob3: '#e1e1c9',
-        btnBg: '#2d5a27',
+        glass: 'rgba(255, 248, 246, 0.72)',
+        glassBorder: 'rgba(255, 255, 255, 0.55)',
+        glassHeader: 'rgba(255, 240, 238, 0.88)',
+        primary: '#800020',
+        text: '#31120c',
+        textSub: '#57423e',
+        textFaint: '#8b716d',
+        blob1: '#ffdad3',
+        blob2: '#660b05',
+        blob3: '#eddfb4',
+        btnBg: '#800020',
         btnText: '#ffffff',
-        success: '#2d5a27',
+        success: '#800020',
         error: '#ba1a1a',
         categoryBg: 'rgba(255,255,255,0.88)',
-        categoryText: '#154212',
-        segActiveBg: '#2d5a27',
-        segActiveTx: '#9dd090',
-        segInactiveTx: '#154212',
-        divider: 'rgba(0,0,0,0.07)',
-        modalBg: '#f0f2e8',
+        categoryText: '#800020',
+        segActiveBg: '#800020',
+        segActiveTx: '#ffffff',
+        segInactiveTx: '#800020',
+        divider: 'rgba(49,18,12,0.08)',
+        modalBg: '#fff0ee',
     },
     dark: {
-        glass: 'rgba(10, 26, 10, 0.76)',
-        glassBorder: 'rgba(255, 255, 255, 0.10)',
-        glassHeader: 'rgba(10, 26, 10, 0.84)',
-        primary: '#a1d494',
-        primaryContainer: '#2d5a27',
-        onPrimaryContainer: '#9dd090',
-        text: '#F5F5DC',
-        textSub: 'rgba(245,245,220,0.58)',
-        textFaint: 'rgba(245,245,220,0.38)',
-        blob1: '#2d5a27',
-        blob2: '#154212',
-        blob3: '#1a331a',
-        btnBg: '#2d5a27',
-        btnText: '#9dd090',
-        success: '#2d5a27',
+        glass: 'rgba(74, 39, 31, 0.72)',
+        glassBorder: 'rgba(255, 218, 211, 0.14)',
+        glassHeader: 'rgba(74, 39, 31, 0.88)',
+        primary: '#ffb4a8',
+        text: '#fff8f6',
+        textSub: 'rgba(255,248,246,0.62)',
+        textFaint: 'rgba(255,248,246,0.38)',
+        blob1: '#660b05',
+        blob2: '#4a271f',
+        blob3: '#3a1a00',
+        btnBg: '#660b05',
+        btnText: '#ffdad4',
+        success: '#660b05',
         error: '#cf6679',
-        categoryBg: 'rgba(10,26,10,0.88)',
-        categoryText: '#a1d494',
-        segActiveBg: '#2d5a27',
-        segActiveTx: '#9dd090',
-        segInactiveTx: 'rgba(245,245,220,0.6)',
-        divider: 'rgba(255,255,255,0.07)',
-        modalBg: '#0d1f0d',
+        categoryBg: 'rgba(74,39,31,0.88)',
+        categoryText: '#ffb4a8',
+        segActiveBg: '#660b05',
+        segActiveTx: '#ffdad4',
+        segInactiveTx: 'rgba(255,248,246,0.65)',
+        divider: 'rgba(255,248,246,0.08)',
+        modalBg: '#2a0f09',
     },
 };
 
@@ -75,28 +72,156 @@ const PRIORITY_COLORS = {
     critical: '#7C3AED',
 };
 
-const indoorLocations = [
+const allLocations = [
     { label: 'Building M', value: 'Building M' },
     { label: 'Building S', value: 'Building S' },
     { label: 'Building A', value: 'Building A' },
     { label: 'Building C', value: 'Building C' },
-];
-
-const outdoorLocations = [
     { label: 'Food Court', value: 'Food Court' },
     { label: 'Boosters', value: 'Boosters' },
     { label: 'Panorama', value: 'Panorama' },
+    { label: 'Pool', value: 'Pool' },
+    { label: 'Stationary Shop', value: 'Stationary Shop' },
     { label: 'Padel', value: 'Padel' },
+    { label: 'Prayer Room', value: 'Prayer Room' },
     { label: 'Supermarket', value: 'Supermarket' },
     { label: 'Gym', value: 'Gym' },
-    { label: 'VolleyBall Court', value: 'VolleyBall Court' },
+    { label: 'Volleyball Court', value: 'Volleyball Court' },
     { label: 'Basketball Court', value: 'Basketball Court' },
-    { label: 'Football Area', value: 'Football Area' },
-    { label: 'SuperMarket Pathway', value: 'SuperMarket Pathway' },
-    { label: 'Between S and A', value: 'Between S and A' },
+    { label: 'Football Court', value: 'Football Court' },
+    { label: 'Supermarket Pathway', value: 'Supermarket Pathway' },
+    { label: 'Between A and S', value: 'Between A and S' },
     { label: 'Between S and M', value: 'Between S and M' },
     { label: 'Between A and C', value: 'Between A and C' },
+    { label: 'U of the M Building', value: 'U of the M Building' },
 ];
+
+// Unified custom dropdown — searchable optional, z-index configurable
+const CustomDropdown = ({ id, openId, setOpenId, value, onValueChange, items, label, fc, theme, searchable = false, zIndex = 30, whiteText = false, hideClear = false, t }) => {
+    const open = openId === id;
+    const setOpen = (val) => setOpenId(val ? id : null);
+    const [search, setSearch] = useState('');
+
+    const filtered = useMemo(() => {
+        if (!searchable || !search) return items;
+        const q = search.toLowerCase();
+        return items.filter(i => i.label.toLowerCase().includes(q));
+    }, [items, search, searchable]);
+
+    const selectedLabel = value ? items.find(i => i.value === value)?.label : null;
+    const btnTextColor = (whiteText && theme === 'dark') ? '#ffffff' : fc.text;
+    const itemActiveColor = (whiteText && theme === 'dark') ? '#ffffff' : fc.primary;
+    const dropBg = theme === 'dark' ? '#1a0805' : '#fff5f3';
+    const borderClr = theme === 'dark' ? 'rgba(60,15,5,0.95)' : 'rgba(66,0,0,0.22)';
+    const divClr = theme === 'dark' ? 'rgba(255,218,211,0.08)' : 'rgba(66,0,0,0.06)';
+
+    return (
+        <View style={{ position: 'relative', zIndex }}>
+            <TouchableOpacity
+                onPress={() => { setOpen(v => !v); setSearch(''); }}
+                style={{
+                    backgroundColor: theme === 'dark' ? '#2a0f09' : 'rgba(255, 218, 211, 0.85)',
+                    borderRadius: 8,
+                    borderWidth: 0.5,
+                    borderColor: borderClr,
+                    width: 110,
+                    height: 34,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 8,
+                    justifyContent: 'space-between',
+                }}
+            >
+                <Text numberOfLines={1} style={{ flex: 1, fontSize: 12, color: btnTextColor }}>
+                    {selectedLabel || label}
+                </Text>
+                <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={12} color={(whiteText && theme === 'dark') ? '#ffffff' : fc.primary} />
+            </TouchableOpacity>
+
+            {open && (
+                <TouchableOpacity
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9998 }}
+                    onPress={() => { setOpenId(null); setSearch(''); }}
+                    activeOpacity={1}
+                />
+            )}
+            {open && (
+                <View style={{
+                    position: 'absolute',
+                    top: 38,
+                    left: 0,
+                    width: 210,
+                    backgroundColor: dropBg,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    borderColor: borderClr,
+                    shadowColor: '#420000',
+                    shadowOffset: { width: 0, height: 8 },
+                    shadowOpacity: 0.28,
+                    shadowRadius: 14,
+                    elevation: 30,
+                    overflow: 'hidden',
+                    zIndex: 9999,
+                }}>
+                    {searchable && (
+                        <View style={{
+                            flexDirection: 'row', alignItems: 'center',
+                            borderBottomWidth: 1, borderColor: divClr,
+                            paddingHorizontal: 10, paddingVertical: 6,
+                        }}>
+                            <Ionicons name="search-outline" size={13} color={fc.textFaint} style={{ marginRight: 5 }} />
+                            <TextInput
+                                style={{ flex: 1, fontSize: 12, color: fc.text, paddingVertical: 2 }}
+                                placeholder={t ? t('searchByName') : 'Search...'}
+                                placeholderTextColor={fc.textFaint}
+                                value={search}
+                                onChangeText={setSearch}
+                                autoFocus
+                            />
+                            {search.length > 0 && (
+                                <TouchableOpacity onPress={() => setSearch('')}>
+                                    <Ionicons name="close-circle" size={13} color={fc.textFaint} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
+                    <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled">
+                        {!hideClear && (
+                            <TouchableOpacity
+                                onPress={() => { onValueChange(''); setOpen(false); setSearch(''); }}
+                                style={{
+                                    paddingHorizontal: 12, paddingVertical: 9,
+                                    borderBottomWidth: 1, borderColor: divClr,
+                                    backgroundColor: !value ? (theme === 'dark' ? 'rgba(255,180,168,0.1)' : 'rgba(66,0,0,0.06)') : 'transparent',
+                                }}
+                            >
+                                <Text style={{ fontSize: 12, color: fc.textSub, fontStyle: 'italic' }}>{label}</Text>
+                            </TouchableOpacity>
+                        )}
+                        {filtered.map(item => (
+                            <TouchableOpacity
+                                key={item.value}
+                                onPress={() => { onValueChange(item.value); setOpen(false); setSearch(''); }}
+                                style={{
+                                    paddingHorizontal: 12, paddingVertical: 9,
+                                    borderBottomWidth: 1, borderColor: divClr,
+                                    backgroundColor: value === item.value ? (theme === 'dark' ? 'rgba(255,180,168,0.1)' : 'rgba(66,0,0,0.06)') : 'transparent',
+                                }}
+                            >
+                                <Text style={{ fontSize: 12, color: value === item.value ? itemActiveColor : fc.text, fontWeight: value === item.value ? '700' : '400' }}>
+                                    {item.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                        {filtered.length === 0 && (
+                            <Text style={{ fontSize: 12, color: fc.textFaint, padding: 12 }}>{t ? t('noResults') : 'No results'}</Text>
+                        )}
+                    </ScrollView>
+                </View>
+            )}
+        </View>
+    );
+};
 
 const DetailRow = ({ label, value, valueColor, textColor }) => (
     <View style={{ flexDirection: 'row', marginBottom: 6, flexWrap: 'wrap' }}>
@@ -107,42 +232,55 @@ const DetailRow = ({ label, value, valueColor, textColor }) => (
 
 const FMDashboard = () => {
     const router = useRouter();
+    const { assigned } = useLocalSearchParams();
     const { t } = useTranslation();
     const { user } = useAuth();
     const { theme } = useTheme();
     const fc = FC[theme] || FC.light;
     const styles = useMemo(() => makeStyles(fc, theme), [fc, theme]);
 
-    const [tickets, setTickets]   = useState([]);
-    const [loading, setLoading]   = useState(true);
+    const [tickets, setTickets] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState('');
     const [refreshing, setRefreshing] = useState(false);
-    const [areaType, setAreaType] = useState('both');
     const [filterArea, setFilterArea] = useState('');
     const [filterCategory, setFilterCategory] = useState('');
-    const [filterStatus, setFilterStatus] = useState('pending');
     const [filterSort, setFilterSort] = useState('recent');
     const [layoutMode, setLayoutMode] = useState('wide');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeTab, setActiveTab] = useState('pending');
+    const [subStatus, setSubStatus] = useState('all');
     const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
     const [selectedTicketId, setSelectedTicketId] = useState(null);
     const [ticketDetailVisible, setTicketDetailVisible] = useState(false);
     const [selectedDetailTicket, setSelectedDetailTicket] = useState(null);
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
     const [previewSize, setPreviewSize] = useState(null);
+    const [openDropdown, setOpenDropdown] = useState(null);
+    const [detailAssignments, setDetailAssignments] = useState([]);
+    const [detailAttemptIdx, setDetailAttemptIdx] = useState(0);
+    const [detailAssignmentsLoading, setDetailAssignmentsLoading] = useState(false);
 
-    // Animations
     const popupAnim = useRef(new Animated.Value(0)).current;
-    const segSlide  = useRef(new Animated.Value(0)).current;
-    const [segWidth, setSegWidth] = useState(0);
-    const AREA_KEYS = ['both', 'indoor', 'outdoor'];
+    const assignedSlide = useRef(new Animated.Value(-36)).current;
+    const [showAssignedPopup, setShowAssignedPopup] = useState(false);
+    const SUB_KEYS = ['all', 'assigned', 'reassigned', 'feedback'];
+    const subSlide = useRef(new Animated.Value(0)).current;
+    const [subSegWidth, setSubSegWidth] = useState(0);
+    const assignedShown = useRef(false);
+
+    // Derive server-side status from active tab
+    const serverStatus = activeTab === 'pending' ? 'pending'
+        : activeTab === 'completed' ? 'completed'
+            : activeTab === 'overdue' ? 'overdue'
+                : ''; // 'assigned' and 'all' tabs fetch everything, filter client-side
 
     const fetchTickets = useCallback(async () => {
         setFetchError('');
         try {
             const params = new URLSearchParams();
-            if (areaType !== 'both') params.append('area', areaType);
             if (filterCategory) params.append('category', filterCategory);
-            if (filterStatus) params.append('status', filterStatus);
+            if (serverStatus) params.append('status', serverStatus);
             if (filterSort) params.append('sort', filterSort);
             const data = await api.get(`/fm/tickets?${params.toString()}`);
             setTickets(data);
@@ -154,9 +292,31 @@ const FMDashboard = () => {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [areaType, filterArea, filterCategory, filterStatus, filterSort]);
+    }, [filterCategory, serverStatus, filterSort]);
 
     useEffect(() => { fetchTickets(); }, [fetchTickets]);
+
+    // Client-side filtering for search + assigned sub-status
+    const displayedTickets = useMemo(() => {
+        let list = tickets;
+        if (activeTab === 'assigned') {
+            if (subStatus === 'assigned') list = list.filter(t => t.status === 'assigned');
+            else if (subStatus === 'reassigned') list = list.filter(t => t.status === 'reassigned');
+            else if (subStatus === 'feedback') list = list.filter(t => t.status === 'in_progress');
+            else list = list.filter(t => t.status === 'assigned' || t.status === 'in_progress' || t.status === 'reassigned'); // 'all'
+        }
+        if (activeTab === 'overdue') list = list.filter(t => t.status === 'overdue');
+        if (filterArea) list = list.filter(t => t.area === filterArea);
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            list = list.filter(t =>
+                t.description?.toLowerCase().includes(q) ||
+                t.category?.toLowerCase().includes(q) ||
+                t.area?.toLowerCase().includes(q)
+            );
+        }
+        return list;
+    }, [tickets, activeTab, subStatus, filterArea, searchQuery]);
 
     useEffect(() => {
         if (!imagePreviewUrl) { setPreviewSize(null); popupAnim.setValue(0); return; }
@@ -170,23 +330,43 @@ const FMDashboard = () => {
         }).start();
     }, [imagePreviewUrl]);
 
+    useEffect(() => {
+        Animated.spring(subSlide, {
+            toValue: SUB_KEYS.indexOf(subStatus),
+            useNativeDriver: true, tension: 180, friction: 18,
+        }).start();
+    }, [subStatus]);
+
+    useEffect(() => {
+        if (assigned === '1' && !assignedShown.current) {
+            assignedShown.current = true;
+            setShowAssignedPopup(true);
+            Animated.spring(assignedSlide, { toValue: 0, useNativeDriver: true, tension: 180, friction: 16 }).start();
+            setTimeout(() => {
+                Animated.spring(assignedSlide, { toValue: -36, useNativeDriver: true, tension: 180, friction: 16 }).start(() => {
+                    setShowAssignedPopup(false);
+                });
+            }, 5000);
+        }
+    }, [assigned]);
+
+    useEffect(() => {
+        if (!selectedDetailTicket) { setDetailAssignments([]); setDetailAttemptIdx(0); return; }
+        setDetailAttemptIdx(0);
+        setDetailAssignmentsLoading(true);
+        api.get(`/fm/tickets/${selectedDetailTicket.id}/assignments`)
+            .then(data => setDetailAssignments(data || []))
+            .catch(() => setDetailAssignments([]))
+            .finally(() => setDetailAssignmentsLoading(false));
+    }, [selectedDetailTicket]);
+
     const onRefresh = () => { setRefreshing(true); fetchTickets(); };
 
-    const handleAreaTypeChange = (type) => {
-        const idx = AREA_KEYS.indexOf(type);
-        Animated.spring(segSlide, {
-            toValue: idx, useNativeDriver: true, tension: 180, friction: 18,
-        }).start();
-        setAreaType(type);
-        setFilterArea('');
-    };
-
     const handleResetFilters = () => {
-        setAreaType('both');
         setFilterArea('');
         setFilterCategory('');
-        setFilterStatus('pending');
         setFilterSort('recent');
+        setSearchQuery('');
     };
 
     const getActionButton = (ticket) => {
@@ -204,7 +384,7 @@ const FMDashboard = () => {
                 </TouchableOpacity>
             );
         }
-        if (hasProof && status === 'in_progress') {
+        if (status === 'in_progress') {
             return (
                 <TouchableOpacity
                     style={styles.btnFeedback}
@@ -228,8 +408,25 @@ const FMDashboard = () => {
         }
         if (status === 'reassigned') {
             return (
-                <View style={styles.btnAssigned}>
-                    <Text style={styles.btnAssignedText}>{t('reassigned')}</Text>
+                <View style={styles.completedFooterRow}>
+                    <TouchableOpacity onPress={() => { setSelectedDetailTicket(ticket); setTicketDetailVisible(true); }}>
+                        <Text style={styles.viewTicketLink}>{t('viewTicket')}</Text>
+                    </TouchableOpacity>
+                    <View style={styles.btnAssigned}>
+                        <Text style={styles.btnAssignedText}>{t('reassigned')}</Text>
+                    </View>
+                </View>
+            );
+        }
+        if (status === 'overdue') {
+            return (
+                <View style={styles.overdueFooterRow}>
+                    <TouchableOpacity
+                        style={styles.btnOverdueReassign}
+                        onPress={() => router.push({ pathname: '/fm/assign', params: { ticketId: ticket.id, reassign: '1' } })}
+                    >
+                        <Text style={styles.btnOverdueReassignText}>{t('reassign')}</Text>
+                    </TouchableOpacity>
                 </View>
             );
         }
@@ -246,23 +443,17 @@ const FMDashboard = () => {
         return (
             <View style={[styles.priorityBadge, { backgroundColor: PRIORITY_COLORS[priority] + '22' }]}>
                 <Text style={[styles.priorityText, { color: PRIORITY_COLORS[priority] }]}>
-                    {priority.toUpperCase()}
+                    {t(priority).toUpperCase()}
                 </Text>
             </View>
         );
     };
 
-    const locationItems = areaType === 'indoor'
-        ? indoorLocations
-        : areaType === 'outdoor'
-            ? outdoorLocations
-            : [...indoorLocations, ...outdoorLocations];
-
     return (
         <ImageBackground
             source={theme === 'dark'
-                ? require('../../assets/images/bg-dark.png')
-                : require('../../assets/images/bg-light.png')}
+                ? require('../../assets/images/bg.png')
+                : require('../../assets/images/bg2.png')}
             style={styles.bgImage}
             resizeMode="cover"
         >
@@ -286,121 +477,144 @@ const FMDashboard = () => {
                 <>
                     {/* Filter bar */}
                     <View style={styles.filterBar}>
-                        {/* Segmented control */}
-                        <View
-                            style={styles.segment}
-                            onLayout={e => setSegWidth(e.nativeEvent.layout.width - 8)}
-                        >
-                            {/* Sliding pill */}
-                            {segWidth > 0 && (
-                                <Animated.View style={[styles.segPill, {
-                                    width: segWidth / 3,
-                                    transform: [{
-                                        translateX: segSlide.interpolate({
-                                            inputRange: [0, 1, 2],
-                                            outputRange: [0, segWidth / 3, (segWidth / 3) * 2],
-                                        }),
-                                    }],
-                                }]} />
-                            )}
-                            {[
-                                { key: 'both',    label: t('both') },
-                                { key: 'indoor',  label: t('indoor') },
-                                { key: 'outdoor', label: t('outdoor') },
-                            ].map(({ key, label }) => (
-                                <TouchableOpacity
-                                    key={key}
-                                    style={styles.segBtn}
-                                    onPress={() => handleAreaTypeChange(key)}
-                                >
-                                    <Text style={[styles.segText, areaType === key && styles.segTextActive]}>
-                                        {label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
+                        {/* Search bar */}
+                        <View style={styles.searchRow}>
+                            {/* Outer white border */}
+                            <View style={styles.searchBoxOuter}>
+                                {/* Inner light gray border */}
+                                <View style={styles.searchBox}>
+                                    <Ionicons name="search-outline" size={16} color={fc.textFaint} style={{ marginRight: 6 }} />
+                                    <TextInput
+                                        style={styles.searchInput}
+                                        placeholder={t('searchTickets')}
+                                        placeholderTextColor={fc.textFaint}
+                                        value={searchQuery}
+                                        onChangeText={setSearchQuery}
+                                        autoCapitalize="none"
+                                    />
+                                    {searchQuery.length > 0 && (
+                                        <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                            <Ionicons name="close-circle" size={16} color={fc.textFaint} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            </View>
                         </View>
 
-                        {/* 2×2 picker grid */}
-                        <View style={styles.pickerGrid}>
-                            <View style={styles.pickerCell}>
-                                <Picker
-                                    selectedValue={filterArea}
+                        {/* Controls row: [Location][Category][Sort][Both|Assigned|Reassigned?] ... [Reset][Layout] */}
+                        <View style={styles.controlsRow}>
+                            <View style={styles.controlsLeft}>
+                                <CustomDropdown
+                                    id="location"
+                                    openId={openDropdown}
+                                    setOpenId={setOpenDropdown}
+                                    value={filterArea}
                                     onValueChange={setFilterArea}
-                                    style={styles.picker}
-                                    dropdownIconColor={fc.primary}
-                                >
-                                    <Picker.Item label={t('locationAll')} value="" color={fc.text} />
-                                    {locationItems.map(loc => (
-                                        <Picker.Item key={loc.value} label={loc.label} value={loc.value} color={fc.text} />
-                                    ))}
-                                </Picker>
-                            </View>
-                            <View style={styles.pickerCell}>
-                                <Picker
-                                    selectedValue={filterCategory}
+                                    items={allLocations}
+                                    label={t('locationFilter')}
+                                    fc={fc}
+                                    theme={theme}
+                                    searchable
+                                    zIndex={50}
+                                    whiteText
+                                    t={t}
+                                />
+                                <CustomDropdown
+                                    id="category"
+                                    openId={openDropdown}
+                                    setOpenId={setOpenDropdown}
+                                    value={filterCategory}
                                     onValueChange={setFilterCategory}
-                                    style={styles.picker}
-                                    dropdownIconColor={fc.primary}
-                                >
-                                    <Picker.Item label={t('categoryAll')} value="" color={fc.text} />
-                                    <Picker.Item label={t('Electrical Issues')} value="Electrical Issues" color={fc.text} />
-                                    <Picker.Item label={t('Plumbing')} value="Plumbing" color={fc.text} />
-                                    <Picker.Item label={t('AC and Heating Issues')} value="AC and Heating Issues" color={fc.text} />
-                                    <Picker.Item label={t('Furniture Damage')} value="Furniture Damage" color={fc.text} />
-                                    <Picker.Item label={t('Cleaning & Housekeeping')} value="Cleaning & Housekeeping" color={fc.text} />
-                                    <Picker.Item label={t('Facilities & Utilities')} value="Facilities & Utilities" color={fc.text} />
-                                    <Picker.Item label={t('Garden/Landscape/Path Issues')} value="Garden/Landscape/Path Issues" color={fc.text} />
-                                </Picker>
-                            </View>
-                            <View style={styles.pickerCell}>
-                                <Picker
-                                    selectedValue={filterStatus}
-                                    onValueChange={setFilterStatus}
-                                    style={styles.picker}
-                                    dropdownIconColor={fc.primary}
-                                >
-                                    <Picker.Item label={t('pending')} value="pending" color={fc.text} />
-                                    <Picker.Item label={t('assigned')} value="assigned" color={fc.text} />
-                                    <Picker.Item label={t('inProgress')} value="in_progress" color={fc.text} />
-                                    <Picker.Item label={t('reassigned')} value="reassigned" color={fc.text} />
-                                    <Picker.Item label={t('completed')} value="completed" color={fc.text} />
-                                    <Picker.Item label={t('all')} value="" color={fc.text} />
-                                </Picker>
-                            </View>
-                            <View style={styles.pickerCell}>
-                                <Picker
-                                    selectedValue={filterSort}
+                                    whiteText
+                                    items={[
+                                        { label: 'Electrical Issues', value: 'Electrical Issues' },
+                                        { label: 'Plumbing', value: 'Plumbing' },
+                                        { label: 'AC and Heating Issues', value: 'AC and Heating Issues' },
+                                        { label: 'Furniture Damage', value: 'Furniture Damage' },
+                                        { label: 'Cleaning & Housekeeping', value: 'Cleaning & Housekeeping' },
+                                        { label: 'Facilities & Utilities', value: 'Facilities & Utilities' },
+                                        { label: 'Garden/Landscape/Path Issues', value: 'Garden/Landscape/Path Issues' },
+                                    ]}
+                                    label={t('categoryFilter')}
+                                    fc={fc}
+                                    theme={theme}
+                                    zIndex={40}
+                                    t={t}
+                                />
+                                <CustomDropdown
+                                    id="sort"
+                                    openId={openDropdown}
+                                    setOpenId={setOpenDropdown}
+                                    value={filterSort}
                                     onValueChange={setFilterSort}
-                                    style={styles.picker}
-                                    dropdownIconColor={fc.primary}
-                                >
-                                    <Picker.Item label={t('mostRecent')} value="recent" color={fc.text} />
-                                    <Picker.Item label={t('leastRecent')} value="oldest" color={fc.text} />
-                                    <Picker.Item label={t('mostPopular')} value="popular" color={fc.text} />
-                                </Picker>
-                            </View>
-                        </View>
+                                    items={[
+                                        { label: t('mostRecent'), value: 'recent' },
+                                        { label: t('leastRecent'), value: 'oldest' },
+                                        { label: t('mostPopular'), value: 'popular' },
+                                    ]}
+                                    label={t('mostRecent')}
+                                    fc={fc}
+                                    theme={theme}
+                                    zIndex={30}
+                                    hideClear
+                                    whiteText
+                                    t={t}
+                                />
 
-                        <View style={styles.filterFooterRow}>
-                            <TouchableOpacity style={styles.resetBtn} onPress={handleResetFilters}>
-                                <Text style={styles.resetBtnText}>{t('reset')}</Text>
-                            </TouchableOpacity>
-                            <View style={styles.layoutToggle}>
-                                {[
-                                    { key: 'wide', icon: '▬' },
-                                    { key: 'grid', icon: '⊞' },
-                                    { key: 'narrow', icon: '▤' },
-                                ].map(({ key, icon }) => (
-                                    <TouchableOpacity
-                                        key={key}
-                                        style={[styles.layoutBtn, layoutMode === key && styles.layoutBtnActive]}
-                                        onPress={() => setLayoutMode(key)}
+                                {/* Sub-status filter — only visible on In Progress tab */}
+                                {activeTab === 'assigned' && (
+                                    <View
+                                        style={styles.subSeg}
+                                        onLayout={e => setSubSegWidth(e.nativeEvent.layout.width - 6)}
                                     >
-                                        <Text style={[styles.layoutBtnText, layoutMode === key && styles.layoutBtnTextActive]}>
-                                            {icon}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                                        {/* Sliding oval pill */}
+                                        {subSegWidth > 0 && (
+                                            <Animated.View style={[styles.subSegPill, {
+                                                width: subSegWidth / 4,
+                                                transform: [{
+                                                    translateX: subSlide.interpolate({
+                                                        inputRange: [0, 1, 2, 3],
+                                                        outputRange: [3, 3 + subSegWidth / 4, 3 + (subSegWidth / 4) * 2, 3 + (subSegWidth / 4) * 3],
+                                                    })
+                                                }],
+                                            }]} />
+                                        )}
+                                        {SUB_KEYS.map(k => (
+                                            <TouchableOpacity
+                                                key={k}
+                                                style={styles.subSegBtn}
+                                                onPress={() => setSubStatus(k)}
+                                            >
+                                                <Text style={[styles.subSegText, subStatus === k && styles.subSegTextActive]}>
+                                                    {t(k === 'feedback' ? 'feedback' : k)}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
+                                <TouchableOpacity style={styles.resetBtn} onPress={handleResetFilters}>
+                                    <Text style={styles.resetBtnText}>{t('reset')}</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.controlsRight}>
+                                <View style={styles.layoutToggle}>
+                                    {[
+                                        { key: 'wide', icon: '▬' },
+                                        { key: 'grid', icon: '⊞' },
+                                        { key: 'narrow', icon: '▤' },
+                                    ].map(({ key, icon }) => (
+                                        <TouchableOpacity
+                                            key={key}
+                                            style={[styles.layoutBtn, layoutMode === key && styles.layoutBtnActive]}
+                                            onPress={() => setLayoutMode(key)}
+                                        >
+                                            <Text style={[styles.layoutBtnText, layoutMode === key && styles.layoutBtnTextActive]}>
+                                                {icon}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </View>
                         </View>
                     </View>
@@ -414,21 +628,29 @@ const FMDashboard = () => {
                         ]}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={fc.primary} />}
                     >
-                        {tickets.length === 0 ? (
+                        {displayedTickets.length === 0 ? (
                             <View style={styles.empty}>
                                 <Text style={styles.emptyText}>{t('noTickets')}</Text>
                             </View>
                         ) : (
-                            tickets.map((ticket) => {
-                                const reassignBlock = ticket.status === 'reassigned' && ticket.assignments?.[0] && (() => {
-                                    const a = ticket.assignments[0];
+                            displayedTickets.map((ticket) => {
+                                const reassignBlock = ticket.status === 'reassigned' && (() => {
+                                    // sort by attempt_number so order is reliable
+                                    const sorted = [...(ticket.assignments || [])].sort((x, y) => (x.attempt_number || 0) - (y.attempt_number || 0));
+                                    // most recent real assignment (has a worker)
+                                    const realA = [...sorted].reverse().find(a => a.worker_id);
+                                    // pending shell holds new deadline / priority (no worker yet)
+                                    const shell = sorted.find(a => !a.worker_id);
+                                    if (!realA && !shell) return null;
                                     return (
                                         <View style={styles.reassignBox}>
-                                            {a.deadline && <Text style={styles.reassignInfo}>{t('setDeadline')}: {new Date(a.deadline).toLocaleDateString()}</Text>}
-                                            {a.worker_note && <Text style={styles.reassignInfo} numberOfLines={2}>{t('workersNote')}: {a.worker_note}</Text>}
-                                            {a.feedback && <Text style={styles.reassignInfo} numberOfLines={2}>{t('feedbackBtn')}: {a.feedback}</Text>}
-                                            {a.proof_url && (
-                                                <TouchableOpacity onPress={() => setImagePreviewUrl(a.proof_url)}>
+                                            {realA?.worker_name && <Text style={styles.reassignInfo}>{t('workerPrefix')}: {realA.worker_name}</Text>}
+                                            {realA?.deadline && <Text style={styles.reassignInfo}>{t('oldDeadline')}: {new Date(realA.deadline).toLocaleDateString()}</Text>}
+                                            {shell?.deadline && <Text style={styles.reassignInfo}>{t('newDeadline')}: {new Date(shell.deadline).toLocaleDateString()}</Text>}
+                                            {realA?.worker_note && <Text style={styles.reassignInfo} numberOfLines={2}>{t('workersNote')}: {realA.worker_note}</Text>}
+                                            {realA?.feedback && <Text style={styles.reassignInfo} numberOfLines={2}>{t('feedbackBtn')}: {realA.feedback}</Text>}
+                                            {realA?.proof_url && (
+                                                <TouchableOpacity onPress={() => setImagePreviewUrl(realA.proof_url)}>
                                                     <Text style={styles.proofLink}>{t('proofLabel')}</Text>
                                                 </TouchableOpacity>
                                             )}
@@ -463,7 +685,7 @@ const FMDashboard = () => {
                                                 <Text style={styles.categoryBadgeText}>{ticket.category?.toUpperCase()}</Text>
                                             </View>
                                             <View style={styles.cardBody}>
-                                                <Text style={styles.cardTitle} numberOfLines={2}>{ticket.description || 'No description'}</Text>
+                                                <Text style={styles.cardTitle} numberOfLines={2}>{ticket.description || t('noDescription')}</Text>
                                                 <Text style={styles.cardLocation}>{[ticket.area, ticket.floor].filter(Boolean).join(' · ')}</Text>
                                                 {ticket.assignments?.[0]?.worker_name && <Text style={styles.cardWorker}>{t('workerPrefix')}: {ticket.assignments[0].worker_name}</Text>}
                                                 {getPriorityBadge(ticket)}
@@ -491,7 +713,7 @@ const FMDashboard = () => {
                                                 <Text style={styles.categoryBadgeText}>{ticket.category?.toUpperCase()}</Text>
                                             </View>
                                             <View style={styles.cardBody}>
-                                                <Text style={styles.cardTitle} numberOfLines={3}>{ticket.description || 'No description'}</Text>
+                                                <Text style={styles.cardTitle} numberOfLines={3}>{ticket.description || t('noDescription')}</Text>
                                                 <Text style={styles.cardLocation} numberOfLines={1}>{[ticket.area, ticket.floor].filter(Boolean).join(' · ')}</Text>
                                                 {getPriorityBadge(ticket)}
                                                 {footer}
@@ -517,7 +739,7 @@ const FMDashboard = () => {
                                                 <View style={styles.categoryBadge}>
                                                     <Text style={styles.categoryBadgeText}>{ticket.category?.toUpperCase()}</Text>
                                                 </View>
-                                                <Text style={styles.cardTitle} numberOfLines={2}>{ticket.description || 'No description'}</Text>
+                                                <Text style={styles.cardTitle} numberOfLines={2}>{ticket.description || t('noDescription')}</Text>
                                                 <Text style={styles.cardLocation}>{[ticket.area, ticket.floor].filter(Boolean).join(' · ')}</Text>
                                                 {ticket.assignments?.[0]?.worker_name && <Text style={styles.cardWorker}>{t('workerPrefix')}: {ticket.assignments[0].worker_name}</Text>}
                                                 {getPriorityBadge(ticket)}
@@ -531,6 +753,15 @@ const FMDashboard = () => {
                         )}
                         <View style={{ height: 40 }} />
                     </ScrollView>
+
+                    <FMNavBar
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                        subStatus={subStatus}
+                        onSubStatusChange={setSubStatus}
+                        fc={fc}
+                        theme={theme}
+                    />
                 </>
             )}
 
@@ -584,24 +815,109 @@ const FMDashboard = () => {
                                             {t_.completed_at && (
                                                 <DetailRow label={t('completedAt')} value={new Date(t_.completed_at).toLocaleString()} textColor={fc.textSub} />
                                             )}
-                                            {a && (
-                                                <>
-                                                    <View style={styles.detailDivider} />
-                                                    {a.worker_name && <DetailRow label={t('workerPrefix')} value={a.worker_name} textColor={fc.textSub} />}
-                                                    {a.priority && <DetailRow label={t('priority')} value={a.priority.toUpperCase()} valueColor={PRIORITY_COLORS[a.priority]} textColor={fc.textSub} />}
-                                                    {a.deadline && <DetailRow label={t('setDeadline')} value={new Date(a.deadline).toLocaleString()} textColor={fc.textSub} />}
-                                                    {a.worker_note && <DetailRow label={t('workersNote')} value={a.worker_note} textColor={fc.textSub} />}
-                                                    {a.feedback && <DetailRow label={t('feedbackBtn')} value={a.feedback} textColor={fc.textSub} />}
-                                                    {a.proof_url && (
-                                                        <View style={styles.detailProofWrap}>
-                                                            <Text style={[styles.detailLabel, { color: fc.textSub }]}>{t('proofLabel')}</Text>
-                                                            <TouchableOpacity onPress={() => setImagePreviewUrl(a.proof_url)}>
-                                                                <Image source={{ uri: a.proof_url }} style={styles.detailProofImage} resizeMode="cover" />
-                                                            </TouchableOpacity>
-                                                        </View>
-                                                    )}
-                                                </>
-                                            )}
+                                            {detailAssignmentsLoading ? (
+                                                <ActivityIndicator size="small" color={fc.primary} style={{ marginTop: 20 }} />
+                                            ) : (() => {
+                                                // Filter out pending shells (worker_id === null) — only show real assignments
+                                                const displayAttempts = detailAssignments.filter(a => a.worker_id);
+                                                if (displayAttempts.length > 1) {
+                                                    const attempt = displayAttempts[detailAttemptIdx];
+                                                    const nextReal = displayAttempts[detailAttemptIdx + 1];
+                                                    // Find the pending shell between this attempt and the next real one
+                                                    const shell = detailAssignments.find(s =>
+                                                        !s.worker_id &&
+                                                        s.attempt_number > attempt.attempt_number &&
+                                                        (!nextReal || s.attempt_number < nextReal.attempt_number)
+                                                    );
+                                                    const newDeadlineVal = shell?.deadline || nextReal?.deadline;
+                                                    const newPriorityVal = shell?.priority || nextReal?.priority;
+                                                    const isFirst = detailAttemptIdx === 0;
+                                                    const isLast = detailAttemptIdx === displayAttempts.length - 1;
+                                                    return (
+                                                        <>
+                                                            <View style={styles.detailDivider} />
+
+                                                            {/* Header row: title + counter */}
+                                                            <View style={styles.attemptHeader}>
+                                                                <Text style={styles.attemptTitle}>
+                                                                    {t('reassignmentAttempt', { n: detailAttemptIdx + 1 })}
+                                                                </Text>
+                                                                <Text style={styles.attemptCount}>
+                                                                    {detailAttemptIdx + 1} / {displayAttempts.length}
+                                                                </Text>
+                                                            </View>
+
+                                                            {/* Attempt details */}
+                                                            {attempt.worker_name && <DetailRow label={t('workerPrefix')} value={attempt.worker_name} textColor={fc.textSub} />}
+                                                            {attempt.priority && <DetailRow label={t('priority')} value={attempt.priority.toUpperCase()} valueColor={PRIORITY_COLORS[attempt.priority]} textColor={fc.textSub} />}
+                                                            {attempt.deadline && <DetailRow label={t('oldDeadline')} value={new Date(attempt.deadline).toLocaleDateString()} textColor={fc.textSub} />}
+                                                            {attempt.worker_note && <DetailRow label={t('workersNote')} value={attempt.worker_note} textColor={fc.textSub} />}
+                                                            {attempt.feedback && <DetailRow label={t('feedbackBtn')} value={attempt.feedback} textColor={fc.textSub} />}
+                                                            {!isLast && attempt.updated_at && <DetailRow label={t('reassignedAt')} value={new Date(attempt.updated_at).toLocaleString()} textColor={fc.textSub} />}
+                                                            {!isLast && newDeadlineVal && <DetailRow label={t('newDeadline')} value={new Date(newDeadlineVal).toLocaleDateString()} textColor={fc.textSub} />}
+                                                            {!isLast && newPriorityVal && <DetailRow label={t('newPriority')} value={newPriorityVal.toUpperCase()} valueColor={PRIORITY_COLORS[newPriorityVal]} textColor={fc.textSub} />}
+                                                            {isLast && shell?.deadline && <DetailRow label={t('newDeadline')} value={new Date(shell.deadline).toLocaleDateString()} textColor={fc.textSub} />}
+                                                            {isLast && shell?.priority && <DetailRow label={t('newPriority')} value={shell.priority.toUpperCase()} valueColor={PRIORITY_COLORS[shell.priority]} textColor={fc.textSub} />}
+                                                            {attempt.proof_url && (
+                                                                <View style={styles.detailProofWrap}>
+                                                                    <Text style={[styles.detailLabel, { color: fc.textSub }]}>{t('proofLabel')}</Text>
+                                                                    <TouchableOpacity onPress={() => setImagePreviewUrl(attempt.proof_url)}>
+                                                                        <Image source={{ uri: attempt.proof_url }} style={styles.detailProofImage} resizeMode="cover" />
+                                                                    </TouchableOpacity>
+                                                                </View>
+                                                            )}
+
+                                                            {/* Prev / Next nav row — horizontal, below proof */}
+                                                            {(!isFirst || !isLast) && (
+                                                                <View style={styles.attemptNavRow}>
+                                                                    {!isFirst ? (
+                                                                        <TouchableOpacity style={styles.showNavBtn} onPress={() => setDetailAttemptIdx(i => i - 1)}>
+                                                                            <Text style={styles.showNavText}>{'< '}{t('showPrevious')}</Text>
+                                                                        </TouchableOpacity>
+                                                                    ) : <View />}
+                                                                    {!isLast ? (
+                                                                        <TouchableOpacity style={styles.showNavBtn} onPress={() => setDetailAttemptIdx(i => i + 1)}>
+                                                                            <Text style={styles.showNavText}>{t('showNext')}{' >'}</Text>
+                                                                        </TouchableOpacity>
+                                                                    ) : <View />}
+                                                                </View>
+                                                            )}
+                                                        </>
+                                                    );
+                                                }
+                                                // Single real attempt — use displayAttempts[0] (real assignment)
+                                                // not t_.assignments?.[0] which may be the shell
+                                                const singleAttempt = displayAttempts[0] || a;
+                                                if (!singleAttempt) return null;
+                                                const singleShell = detailAssignments.find(s => !s.worker_id);
+                                                const isReassigned = singleAttempt.status === 'reassigned' || !!singleShell;
+                                                const isCompleted = t_.status === 'completed';
+                                                return (
+                                                    <>
+                                                        <View style={styles.detailDivider} />
+                                                        {isReassigned && (
+                                                            <View style={styles.attemptHeader}>
+                                                                <Text style={styles.attemptTitle}>{t('reassignmentAttempt', { n: 1 })}</Text>
+                                                            </View>
+                                                        )}
+                                                        {singleAttempt.worker_name && <DetailRow label={t('workerPrefix')} value={singleAttempt.worker_name} textColor={fc.textSub} />}
+                                                        {singleAttempt.priority && <DetailRow label={t('priority')} value={singleAttempt.priority.toUpperCase()} valueColor={PRIORITY_COLORS[singleAttempt.priority]} textColor={fc.textSub} />}
+                                                        {(singleAttempt.deadline || isCompleted) && <DetailRow label={singleShell ? t('oldDeadline') : t('setDeadline')} value={singleAttempt.deadline ? new Date(singleAttempt.deadline).toLocaleDateString() : '—'} textColor={fc.textSub} />}
+                                                        {(singleAttempt.worker_note || isCompleted) && <DetailRow label={t('workersNote')} value={singleAttempt.worker_note || '—'} textColor={fc.textSub} />}
+                                                        {(singleAttempt.feedback || isCompleted) && <DetailRow label={t('feedbackBtn')} value={singleAttempt.feedback || '—'} textColor={fc.textSub} />}
+                                                        {singleShell?.deadline && <DetailRow label={t('newDeadline')} value={new Date(singleShell.deadline).toLocaleDateString()} textColor={fc.textSub} />}
+                                                        {singleShell?.priority && <DetailRow label={t('newPriority')} value={singleShell.priority.toUpperCase()} valueColor={PRIORITY_COLORS[singleShell.priority]} textColor={fc.textSub} />}
+                                                        {singleAttempt.proof_url && (
+                                                            <View style={styles.detailProofWrap}>
+                                                                <Text style={[styles.detailLabel, { color: fc.textSub }]}>{t('proofLabel')}</Text>
+                                                                <TouchableOpacity onPress={() => setImagePreviewUrl(singleAttempt.proof_url)}>
+                                                                    <Image source={{ uri: singleAttempt.proof_url }} style={styles.detailProofImage} resizeMode="cover" />
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                         </View>
                                     </>
                                 );
@@ -613,6 +929,14 @@ const FMDashboard = () => {
                     </View>
                 </View>
             </Modal>
+
+            {/* Assigned success popup */}
+            {showAssignedPopup && (
+                <Animated.View style={[styles.assignedPopup, { transform: [{ translateY: assignedSlide }] }]}>
+                    <Ionicons name="checkmark-circle" size={13} color="#fff" style={{ marginRight: 5 }} />
+                    <Text style={styles.assignedPopupText}>{t('ticketAssignedSuccess')}</Text>
+                </Animated.View>
+            )}
 
             {/* Image preview modal */}
             <Modal visible={!!imagePreviewUrl} transparent animationType="fade" onRequestClose={() => setImagePreviewUrl(null)}>
@@ -664,54 +988,84 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         paddingHorizontal: 14,
         paddingTop: 10,
         paddingBottom: 8,
+        zIndex: 100,
+        overflow: 'visible',
     },
 
-    // Segmented control
-    segment: {
+    // Search row
+    searchRow: { marginBottom: 8 },
+    // Outer ring — white, lower visual layer
+    searchBoxOuter: {
+        width: '40%',
+        borderRadius: 22,
+        borderWidth: 0.5,
+        borderColor: 'rgba(255,255,255,0.75)',
+        zIndex: 0,
+    },
+    searchBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        height: 34,
+        backgroundColor: fc.glass,
+        borderRadius: 20,
+        borderWidth: 0.2,
+        borderColor: 'rgba(180,180,180,0.55)',
+        paddingHorizontal: 10,
+    },
+    searchInput: { flex: 1, fontSize: 12, color: fc.text, paddingVertical: 0 },
+
+    // Controls row
+    controlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    controlsLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, overflow: 'visible', zIndex: 100 },
+    controlsRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+
+    // Picker cells (3 in a row on the right)
+    pickerCell: {
+        backgroundColor: theme === 'dark' ? 'rgba(102, 11, 5, 0.35)' : 'rgba(255, 218, 211, 0.55)',
+        borderRadius: 8,
+        borderWidth: 0.5,
+        borderColor: theme === 'dark' ? 'rgba(31, 8, 3, 1)' : 'rgba(66, 0, 0, 0.2)',
+        overflow: 'hidden',
+        width: 110,
+        height: 34,
+        justifyContent: 'center',
+    },
+    picker: {
+        height: 37,
+        fontSize: 12,
+        color: fc.text,
+        backgroundColor: theme === 'dark' ? 'rgba(102, 11, 5, 0.35)' : 'rgba(255, 218, 211, 0.55)',
+    },
+
+    // Sub-status segment (Both / Assigned / Reassigned / Feedback)
+    subSeg: {
         flexDirection: 'row',
         backgroundColor: fc.glass,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: fc.glassBorder,
-        padding: 4,
-        marginBottom: 10,
+        height: 37,
+        minWidth: 300,
+        padding: 3,
+        position: 'relative',
     },
-    segPill: {
+    subSegPill: {
         position: 'absolute',
-        top: 0, bottom: 0,
-        borderRadius: 16,
+        top: 3, bottom: 3, left: -2,
+        borderRadius: 9999,
         backgroundColor: fc.segActiveBg,
-        shadowColor: '#2d5a27',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.25,
-        shadowRadius: 6,
-        elevation: 3,
+        shadowColor: '#420000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 2,
     },
-    segBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 16, zIndex: 1 },
-    segBtnActive: {},
-    segText: { fontSize: 13, fontWeight: '600', color: fc.segInactiveTx, letterSpacing: 0.2 },
-    segTextActive: { color: fc.segActiveTx },
-
-    // Picker grid
-    pickerGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 8, rowGap: 6, marginBottom: 8 },
-    pickerCell: {
-        width: '48.5%',
-        backgroundColor: theme === 'dark' ? 'rgba(45, 90, 39, 0.35)' : 'rgba(188, 240, 174, 0.55)',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: theme === 'dark' ? 'rgba(161, 212, 148, 0.3)' : 'rgba(45, 90, 39, 0.25)',
-        overflow: 'hidden',
-    },
-    picker: {
-        height: 42,
-        fontSize: 12,
-        color: fc.text,
-        backgroundColor: theme === 'dark' ? 'rgba(45, 90, 39, 0.35)' : 'rgba(188, 240, 174, 0.55)',
-    },
+    subSegBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', zIndex: 1 },
+    subSegText: { fontSize: 11, fontWeight: '500', color: fc.segInactiveTx },
+    subSegTextActive: { color: fc.segActiveTx, fontWeight: '700' },
 
     // Reset
     resetBtn: {
-        alignSelf: 'flex-end',
         backgroundColor: fc.glass,
         borderWidth: 1,
         borderColor: fc.glassBorder,
@@ -722,7 +1076,6 @@ const makeStyles = (fc, theme) => StyleSheet.create({
     resetBtnText: { fontSize: 12, fontWeight: '600', color: fc.primary, letterSpacing: 0.3 },
 
     // Layout toggle
-    filterFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     layoutToggle: { flexDirection: 'row', backgroundColor: fc.glass, borderRadius: 16, borderWidth: 1, borderColor: fc.glassBorder, overflow: 'hidden' },
     layoutBtn: { paddingHorizontal: 11, paddingVertical: 5 },
     layoutBtnActive: { backgroundColor: fc.segActiveBg },
@@ -730,9 +1083,9 @@ const makeStyles = (fc, theme) => StyleSheet.create({
     layoutBtnTextActive: { color: fc.segActiveTx },
 
     // List
-    list: { flex: 1 },
+    list: { flex: 1, zIndex: 1 },
     listContent: { paddingHorizontal: 16, paddingTop: 14 },
-    listContentGrid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 10, paddingHorizontal: 16, paddingTop: 14 },
+    listContentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 14 },
     empty: { alignItems: 'center', marginTop: 60 },
     emptyText: { color: fc.textSub, fontSize: 15 },
 
@@ -744,7 +1097,7 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         borderColor: fc.glassBorder,
         marginBottom: 16,
         padding: 16,
-        shadowColor: '#2d5a27',
+        shadowColor: '#420000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.14,
         shadowRadius: 20,
@@ -764,7 +1117,7 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         marginBottom: 16,
         marginHorizontal: '18%',
         overflow: 'hidden',
-        shadowColor: '#2d5a27',
+        shadowColor: '#420000',
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.14,
         shadowRadius: 20,
@@ -779,9 +1132,9 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         borderWidth: 1,
         borderColor: fc.glassBorder,
         marginBottom: 10,
-        width: (SCREEN_WIDTH - 42) / 2,
+        width: '48.5%',
         overflow: 'hidden',
-        shadowColor: '#2d5a27',
+        shadowColor: '#420000',
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.12,
         shadowRadius: 14,
@@ -838,7 +1191,7 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 9,
         borderRadius: 20,
-        shadowColor: '#2d5a27',
+        shadowColor: '#420000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -852,6 +1205,7 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         borderRadius: 20,
         borderWidth: 1,
         borderColor: fc.glassBorder,
+        backgroundColor: theme === 'dark' ? 'rgba(228,176,42,0.68)' : 'rgba(228,176,42,0.68)',
     },
     btnAssignedText: { color: fc.textSub, fontWeight: '700', fontSize: 13 },
 
@@ -860,7 +1214,7 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 9,
         borderRadius: 20,
-        shadowColor: '#2d5a27',
+        shadowColor: '#420000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -870,8 +1224,22 @@ const makeStyles = (fc, theme) => StyleSheet.create({
 
     viewTicketLink: { fontSize: 13, color: fc.primary, textDecorationLine: 'underline', fontWeight: '600', marginRight: 10 },
     completedFooterRow: { flexDirection: 'row', alignItems: 'center' },
-    btnCompleted: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, borderWidth: 1, borderColor: fc.glassBorder },
+    btnCompleted: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, borderWidth: 1, borderColor: fc.glassBorder, backgroundColor: theme === 'dark' ? 'rgba(228, 176, 53, 0.06)' : 'rgba(230, 178, 75, 0.06)' },
     btnCompletedText: { color: fc.textSub, fontWeight: '700', fontSize: 13 },
+
+    overdueFooterRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' },
+    btnOverdueReassign: {
+        backgroundColor: fc.btnBg,
+        paddingHorizontal: 20,
+        paddingVertical: 9,
+        borderRadius: 20,
+        shadowColor: '#420000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    btnOverdueReassignText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
 
     // Detail modal
     detailOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
@@ -900,6 +1268,41 @@ const makeStyles = (fc, theme) => StyleSheet.create({
     detailCloseBtn: { margin: 16, backgroundColor: fc.btnBg, paddingVertical: 14, borderRadius: 20, alignItems: 'center' },
     detailCloseBtnText: { color: fc.btnText, fontWeight: '700', fontSize: 15 },
 
+    // Reassignment attempt history
+    attemptHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    attemptTitle: { fontSize: 14, fontWeight: '800', color: fc.primary },
+    attemptCount: { fontSize: 11, color: fc.textFaint, fontStyle: 'italic' },
+    attemptNavRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+    showNavBtn: {
+        paddingVertical: 7, paddingHorizontal: 14,
+        borderRadius: 20, borderWidth: 1, borderColor: fc.glassBorder,
+        backgroundColor: fc.divider,
+    },
+    showNavText: { fontSize: 13, color: fc.primary, fontWeight: '600' },
+
+    // Assigned success popup
+    assignedPopup: {
+        position: 'absolute',
+        top: 0,
+        alignSelf: 'center',
+        maxWidth: SCREEN_WIDTH * 0.6,
+        height: 30,
+        backgroundColor: fc.primary,
+        borderBottomLeftRadius: 14,
+        borderBottomRightRadius: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 10,
+        zIndex: 999,
+        shadowColor: '#420000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+    },
+    assignedPopupText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+
     // Image preview
     previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', alignItems: 'center' },
     previewOuter: {
@@ -909,27 +1312,29 @@ const makeStyles = (fc, theme) => StyleSheet.create({
         borderWidth: 1,
         borderColor: fc.glassBorder,
         padding: 15,
-        shadowColor: '#2d5a27',
+        shadowColor: '#420000',
         shadowOffset: { width: 0, height: 16 },
         shadowOpacity: 0.25,
         shadowRadius: 32,
         elevation: 12,
     },
     previewCloseBtn: {
-        alignSelf: 'flex-end',
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        zIndex: 10,
         width: 32,
         height: 32,
         borderRadius: 16,
         backgroundColor: fc.btnBg,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 10,
     },
     previewCloseTxt: { color: fc.btnText, fontSize: 14, fontWeight: '700' },
     previewInner: {
         borderRadius: 18,
         borderWidth: 1,
-        borderColor: theme === 'dark' ? 'rgba(161,212,148,0.2)' : 'rgba(45,90,39,0.15)',
+        borderColor: theme === 'dark' ? 'rgba(255,180,168,0.2)' : 'rgba(66,0,0,0.12)',
         overflow: 'hidden',
         backgroundColor: fc.divider,
         maxHeight: SCREEN_HEIGHT * 0.7,

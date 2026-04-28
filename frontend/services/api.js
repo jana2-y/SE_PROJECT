@@ -1,7 +1,32 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Replace with your machine's IP address if testing on a physical devicee
 const BASE_URL = 'http://localhost:3000/api';
+
+// Shared refresh promise — prevents multiple simultaneous refresh attempts
+let _refreshPromise = null;
+
+const doRefresh = async () => {
+    if (_refreshPromise) return _refreshPromise;
+    _refreshPromise = (async () => {
+        try {
+            const refreshToken = await AsyncStorage.getItem('userRefreshToken');
+            if (!refreshToken) return null;
+            const res = await fetch(`${BASE_URL}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: refreshToken }),
+            });
+            if (!res.ok) return null;
+            const d = await res.json();
+            await AsyncStorage.setItem('userToken', d.token);
+            if (d.refresh_token) await AsyncStorage.setItem('userRefreshToken', d.refresh_token);
+            return d.token;
+        } finally {
+            _refreshPromise = null;
+        }
+    })();
+    return _refreshPromise;
+};
 
 const api = {
     async request(endpoint, options = {}, retry = true) {
@@ -28,20 +53,8 @@ const api = {
         const data = await response.json();
 
         if (response.status === 401 && retry) {
-            const refreshToken = await AsyncStorage.getItem('userRefreshToken');
-            if (refreshToken) {
-                const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refresh_token: refreshToken }),
-                });
-                if (refreshRes.ok) {
-                    const refreshData = await refreshRes.json();
-                    await AsyncStorage.setItem('userToken', refreshData.token);
-                    await AsyncStorage.setItem('userRefreshToken', refreshData.refresh_token);
-                    return this.request(endpoint, options, false);
-                }
-            }
+            const newToken = await doRefresh();
+            if (newToken) return this.request(endpoint, options, false);
         }
 
         if (!response.ok) {
