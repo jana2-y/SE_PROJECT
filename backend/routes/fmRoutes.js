@@ -12,6 +12,7 @@ import {
 } from '../controllers/fmController.js';
 
 import { protect, authorize } from '../middleware/authMiddleware.js';
+import { getAnalytics } from '../controllers/analyticsController.js';
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.get('/workers', getWorkers);
 router.get('/settings', getSettings);
 router.post('/verify-password', verifyPassword);
 router.patch('/change-password', changePassword);
+router.get('/analytics', getAnalytics);
 
 export default router;

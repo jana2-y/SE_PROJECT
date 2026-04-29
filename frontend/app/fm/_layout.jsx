@@ -10,6 +10,7 @@ const FMLayout = () => {
                     <Stack.Screen name="dashboard" options={{ headerShown: false }} />
                     <Stack.Screen name="assign" options={{ headerShown: false }} />
                     <Stack.Screen name="settings" options={{ headerShown: false }} />
+                    <Stack.Screen name="analytics" options={{ headerShown: false }} />
                 </Stack>
             </ThemeProvider>
         </LanguageProvider>
