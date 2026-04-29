@@ -1,5 +1,6 @@
 import supabase from '../supabase.js';
 import asyncHandler from 'express-async-handler';
+import sendPush from '../utils/pushNotification.js';
 
 // ─── GET ALL TICKETS (dashboard) ─────────────────────────────────────────────
 // GET /api/fm/tickets?status=&area=&category=&sort=
@@ -218,16 +219,24 @@ const assignTicket = asyncHandler(async (req, res) => {
 
   if (logError) console.error('Status log insert failed:', logError.message);
 
-  // notify worker
+  // notify worker (in-app + push)
   const { error: notifError } = await supabase
     .from('notifications')
     .insert({
-      id: worker_id,
-      message: `You have been assigned a new task. Deadline: ${deadline}.`,
+      user_id: worker_id,
+      message: `[${id}] You have been assigned a new task. Deadline: ${deadline}.`,
       is_read: false,
     });
 
   if (notifError) console.error('Worker notification failed:', notifError.message);
+
+  const { data: workerPushData } = await supabase
+    .from('users')
+    .select('expo_push_token')
+    .eq('id', worker_id)
+    .single();
+
+  await sendPush(workerPushData?.expo_push_token, 'New Task Assigned', `You have a new task due ${deadline}. Open the app to get started.`);
 
   res.status(200).json({
     message: `Ticket assigned to ${worker.full_name}.`,
@@ -346,18 +355,29 @@ const submitFeedback = asyncHandler(async (req, res) => {
 
   // notify worker
   const workerMessage = action === 'accept'
-    ? 'Your submitted work has been accepted. The ticket is now marked as completed.'
-    : `Your submitted work was rejected. Reason: ${feedback_text?.trim()}. New deadline: ${new_deadline}.`;
+    ? `[${id}] Your submitted work has been accepted. The ticket is now marked as completed.`
+    : `[${id}] Your submitted work was rejected. Reason: ${feedback_text?.trim()}. New deadline: ${new_deadline}.`;
 
   const { error: notifError } = await supabase
     .from('notifications')
     .insert({
-      id: assignment.worker_id,
+      user_id: assignment.worker_id,
       message: workerMessage,
       is_read: false,
     });
 
   if (notifError) console.error('Worker notification failed:', notifError.message);
+
+  const { data: workerPushData } = await supabase
+    .from('users')
+    .select('expo_push_token')
+    .eq('id', assignment.worker_id)
+    .single();
+
+  const pushBody = action === 'accept'
+    ? 'Your proof was accepted! The ticket is now marked as completed.'
+    : `Your proof was rejected. ${feedback_text?.trim() || ''} New deadline: ${new_deadline}.`;
+  await sendPush(workerPushData?.expo_push_token, action === 'accept' ? 'Work Accepted ✓' : 'Work Rejected', pushBody);
 
   // notify CM (ticket creator)
   const { data: ticketCreator } = await supabase
@@ -374,7 +394,7 @@ const submitFeedback = asyncHandler(async (req, res) => {
     const { error: cmNotifError } = await supabase
       .from('notifications')
       .insert({
-        id: ticketCreator.created_by,
+        user_id: ticketCreator.created_by,
         message: cmMessage,
         is_read: false,
       });

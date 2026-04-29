@@ -52,6 +52,10 @@ const api = {
         return this.request(endpoint, { method: 'PATCH', body: JSON.stringify(body) });
     },
 
+    delete(endpoint) {
+        return this.request(endpoint, { method: 'DELETE' });
+    },
+
     login(credentials) {
         return this.request('/auth/login', {
             method: 'POST',
