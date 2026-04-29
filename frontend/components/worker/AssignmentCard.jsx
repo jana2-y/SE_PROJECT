@@ -46,10 +46,10 @@ const PRIORITY_COLORS = {
 };
 
 const STATUS_META = {
-    assigned:    { label: 'Assigned',    color: '#F59E0B' },
+    assigned: { label: 'Assigned', color: '#F59E0B' },
     in_progress: { label: 'In Progress', color: '#3B82F6' },
-    completed:   { label: 'Completed',   color: '#059669' },
-    reassigned:  { label: 'Reassigned',  color: '#EF4444' },
+    completed: { label: 'Completed', color: '#059669' },
+    reassigned: { label: 'Reassigned', color: '#EF4444' },
 };
 
 const AssignmentCard = ({ assignment, onStartWork, onShowModal }) => {
@@ -59,7 +59,7 @@ const AssignmentCard = ({ assignment, onStartWork, onShowModal }) => {
     const styles = useMemo(() => makeStyles(fc), [fc]);
 
     const ticket = assignment.tickets || {};
-    const { status, priority, deadline, proof_url, feedback } = assignment;
+    const { status, priority, deadline, proof_url, feedback, work_started } = assignment;
     const meta = STATUS_META[status] || { label: status, color: '#999' };
 
     const goToProof = () =>
@@ -69,7 +69,7 @@ const AssignmentCard = ({ assignment, onStartWork, onShowModal }) => {
         });
 
     const renderAction = () => {
-        if (status === 'assigned') {
+        if (status === 'assigned' && !work_started) {
             return (
                 <TouchableOpacity style={styles.btnStart} onPress={() => onStartWork?.(assignment.id)}>
                     <Ionicons name="play-circle-outline" size={16} color={fc.btnText} />
@@ -77,7 +77,7 @@ const AssignmentCard = ({ assignment, onStartWork, onShowModal }) => {
                 </TouchableOpacity>
             );
         }
-        if (status === 'in_progress' && !proof_url) {
+        if (status === 'assigned' && work_started) {
             return (
                 <TouchableOpacity style={styles.btnProof} onPress={goToProof}>
                     <Ionicons name="cloud-upload-outline" size={16} color="#fff" />

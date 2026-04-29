@@ -7,7 +7,7 @@ export async function fetchMyTickets(workerId, status, sort) {
   // Step 1 — fetch assignments (avoid nested select which requires a named FK)
   let assignQuery = supabase
     .from('assignments')
-    .select('id, ticket_id, deadline, status, priority, proof_url, feedback, worker_note')
+    .select('id, ticket_id, deadline, status, priority, proof_url, feedback, worker_note, work_started')
     .eq('worker_id', workerId);
 
   if (status) assignQuery = assignQuery.eq('status', status);
@@ -56,10 +56,9 @@ export async function startTicketWork(assignmentId, workerId) {
     const e = new Error('Only assigned tickets can be started.'); e.statusCode = 400; throw e;
   }
 
-  // Mark assignment as in_progress so the card shows "Submit Proof"
   await supabase
     .from('assignments')
-    .update({ status: 'in_progress' })
+    .update({ work_started: true })
     .eq('id', assignmentId);
 
   // Notify FM in-app
@@ -216,29 +215,28 @@ export async function submitWorkProof(userId, ticketId, buffer, mimeType, worker
     .limit(1)
     .single();
 
+  console.log('[submitWorkProof] assignment:', assignment, 'fetchError:', fetchError?.message);
+
   if (fetchError || !assignment) {
     const e = new Error('No active assignment found for this ticket.');
     e.statusCode = 404;
     throw e;
   }
-  if (!['assigned', 'reassigned'].includes(assignment.status)) {
-    const e = new Error('Proof can only be submitted for assigned or reassigned tickets.');
-    e.statusCode = 400; throw e;
-  }
 
   const ext = (mimeType.split('/')[1] || 'jpg').split(';')[0].trim();
-  const fileName = `${userId}/${assignmentId}/proof_${assignment.attempt_number}.${ext}`;
+  const fileName = `${userId}/${assignment.id}/proof_${assignment.attempt_number}.${ext}`;
+  console.log('[submitWorkProof] uploading to:', fileName);
 
   const { error: uploadError } = await supabase.storage
     .from('proof-image')
     .upload(fileName, buffer, { contentType: mimeType, upsert: true });
-  if (uploadError) throw new Error(uploadError.message);
+  if (uploadError) { console.error('[submitWorkProof] uploadError:', uploadError.message); throw new Error(uploadError.message); }
 
   // Create a long-lived signed URL (1 year)
   const { data: proofSigned, error: proofSignErr } = await supabase.storage
     .from('proof-image')
     .createSignedUrl(fileName, 31536000);
-  if (proofSignErr) throw new Error(proofSignErr.message);
+  if (proofSignErr) { console.error('[submitWorkProof] proofSignErr:', proofSignErr.message); throw new Error(proofSignErr.message); }
 
   // Update assignment: set proof_url, worker_note, and status → in_progress
   const { error: updateError } = await supabase
@@ -248,8 +246,8 @@ export async function submitWorkProof(userId, ticketId, buffer, mimeType, worker
       worker_note: workerNote || null,
       status: 'in_progress',
     })
-    .eq('id', assignmentId);
-  if (updateError) throw new Error(updateError.message);
+    .eq('id', assignment.id);
+  if (updateError) { console.error('[submitWorkProof] updateError:', updateError.message); throw new Error(updateError.message); }
 
   // Update ticket status → in_progress
   await supabase
