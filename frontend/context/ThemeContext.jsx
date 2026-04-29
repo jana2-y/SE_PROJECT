@@ -1,50 +1,99 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// ── Velvet & Gold Glass palette ───────────────────────────────────────────────
 export const LIGHT = {
-    bg:               '#1a2a6c',
-    surface:          '#ffffff',
-    card:             '#ffffff',
-    border:           '#E5E5E5',
-    primary:          '#0078D4',
-    btnBg:            '#0078D4',
-    btnText:          '#ffffff',
-    text:             '#181C22',
-    textSub:          '#717783',
-    textMid:          '#404752',
-    error:            '#DC2626',
-    success:          '#059669',
-    inputBg:          '#F3F3F3',
-    filtersBg:        '#ffffff',
-    pickerItemBg:     '#ffffff',
-    workerSelected:   '#D3E3FF',
-    workerSelectedTx: '#004883',
-    avatarBg:         '#0078D4',
-    footerBg:         '#ffffff',
-    headerBg:         '#ffffff',
+    // Core
+    primary:        '#800020',
+    primaryBtn:     '#800020',
+    primaryBtnText: '#ffffff',
+    text:           '#31120c',
+    textSub:        '#57423e',
+    textFaint:      '#8b716d',
+    error:          '#ba1a1a',
+    success:        '#2d7a3a',
+    divider:        'rgba(49,18,12,0.08)',
+
+    // Gradient
+    gradStart:      '#a6867dff',
+    gradEnd:        '#ede0da',
+
+    // Glass / surfaces
+    card:           'rgba(255,248,246,0.97)',
+    glass:          'rgba(255,255,255,0.62)',
+    glassBorder:    'rgba(66,0,0,0.12)',
+    pillBg:         'rgba(128,0,32,0.07)',
+
+    // Inputs
+    inputBg:        'rgba(255,240,238,0.9)',
+    inputBorder:    'rgba(128,0,32,0.18)',
+
+    // Segment / chips
+    segActiveBg:    '#800020',
+    segActiveTx:    '#ffffff',
+    segInactiveTx:  '#800020',
+
+    // ── backward-compat keys for other pages ─────────────────────────────────
+    bg:             '#ede0da',
+    surface:        'rgba(255,248,246,0.97)',
+    border:         'rgba(66,0,0,0.12)',
+    btnBg:          '#800020',
+    btnText:        '#ffffff',
+    textMid:        '#57423e',
+    filtersBg:      'rgba(255,240,238,0.9)',
+    pickerItemBg:   'rgba(255,248,246,0.97)',
+    workerSelected: 'rgba(128,0,32,0.07)',
+    workerSelectedTx: '#800020',
+    avatarBg:       '#800020',
+    footerBg:       'rgba(255,240,238,0.9)',
+    headerBg:       'rgba(255,240,238,0.9)',
 };
 
 export const DARK = {
-    bg:               '#06111f',
-    surface:          '#0d1f35',
-    card:             '#101e30',
-    border:           'rgba(58,123,213,0.18)',
-    primary:          '#3a7bd5',
-    btnBg:            '#0f2a4a',
-    btnText:          '#a0b4cc',
-    text:             '#e8edf2',
-    textSub:          '#607080',
-    textMid:          '#a0b4cc',
-    error:            '#e53935',
-    success:          '#2e7d52',
-    inputBg:          '#0d1f35',
-    filtersBg:        '#0d1f35',
-    pickerItemBg:     '#0d1f35',
-    workerSelected:   'rgba(58,123,213,0.22)',
-    workerSelectedTx: '#3a7bd5',
-    avatarBg:         '#3a7bd5',
-    footerBg:         '#0d1f35',
-    headerBg:         '#0d1f35',
+    // Core
+    primary:        '#ffb4a8',
+    primaryBtn:     '#660b05',
+    primaryBtnText: '#ffdad4',
+    text:           '#fff8f6',
+    textSub:        'rgba(255,248,246,0.62)',
+    textFaint:      'rgba(255,248,246,0.38)',
+    error:          '#cf6679',
+    success:        '#4caf7d',
+    divider:        'rgba(255,248,246,0.08)',
+
+    // Gradient
+    gradStart:      '#382928ff',
+    gradEnd:        '#421313ff',
+
+    // Glass / surfaces
+    card:           'rgba(42,15,9,0.97)',
+    glass:          'rgba(74,39,31,0.65)',
+    glassBorder:    'rgba(255,218,211,0.14)',
+    pillBg:         'rgba(255,180,168,0.12)',
+
+    // Inputs
+    inputBg:        'rgba(74,39,31,0.7)',
+    inputBorder:    'rgba(255,218,211,0.22)',
+
+    // Segment / chips
+    segActiveBg:    '#660b05',
+    segActiveTx:    '#ffdad4',
+    segInactiveTx:  'rgba(255,248,246,0.65)',
+
+    // ── backward-compat keys for other pages ─────────────────────────────────
+    bg:             '#2a0f09',
+    surface:        'rgba(42,15,9,0.97)',
+    border:         'rgba(255,218,211,0.14)',
+    btnBg:          '#660b05',
+    btnText:        '#ffdad4',
+    textMid:        'rgba(255,248,246,0.62)',
+    filtersBg:      'rgba(74,39,31,0.7)',
+    pickerItemBg:   'rgba(42,15,9,0.97)',
+    workerSelected: 'rgba(255,180,168,0.12)',
+    workerSelectedTx: '#ffb4a8',
+    avatarBg:       '#660b05',
+    footerBg:       'rgba(74,39,31,0.7)',
+    headerBg:       'rgba(74,39,31,0.7)',
 };
 
 const ThemeContext = createContext({

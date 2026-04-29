@@ -39,7 +39,7 @@ const createReward = asyncHandler(async (req, res) => {
     if (usersToNotify && usersToNotify.length > 0) {
       const notifications = usersToNotify.map(u => ({
         user_id: u.id,
-        message: `🎁 New Reward: ${name}! Only ${points_required} points needed.`,
+        message: `New Reward: ${name}! ${points_required} points needed.`,
         is_read: false,
       }));
       await supabase.from('notifications').insert(notifications);

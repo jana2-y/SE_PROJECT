@@ -1,5 +1,7 @@
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, StatusBar } from 'react-native'
+import React from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, StatusBar, ImageBackground } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useTheme } from '../../context/ThemeContext'
 import AdminTabBar from '../../components/admin/AdminTabBar'
 
 const cards = [
@@ -31,69 +33,85 @@ const cards = [
 
 export default function AdminDashboard() {
   const router = useRouter()
+  const { theme, colors } = useTheme()
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#3E0703" />
+    <ImageBackground
+      source={theme === 'dark'
+        ? require('../../assets/images/bg.png')
+        : require('../../assets/images/bg2.png')}
+      style={styles.root}
+      resizeMode="cover"
+    >
+      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+      
+      {/* Organic blob decorations */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <View style={[styles.blob, styles.blob1, { backgroundColor: colors.primary }]} />
+        <View style={[styles.blob, styles.blob2, { backgroundColor: colors.primary }]} />
+        <View style={[styles.blob, styles.blob3, { backgroundColor: colors.primary }]} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.heroSection}>
-          <Text style={styles.heroLabel}>ADMINISTRATION PORTAL</Text>
-          <Text style={styles.heroTitle}>Dashboard</Text>
-          <View style={styles.divider} />
+        <View style={styles.hero}>
+          <Text style={[styles.heroLabel, { color: colors.primary }]}>ADMINISTRATION PORTAL</Text>
+          <Text style={[styles.heroTitle, { color: colors.text }]}>Dashboard</Text>
+          <View style={[styles.divider, { backgroundColor: colors.primary }]} />
         </View>
 
         {cards.map((card, i) => (
           <TouchableOpacity
             key={i}
-            style={styles.card}
+            style={[styles.card, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}
             onPress={() => router.push(card.route)}
             activeOpacity={0.85}
           >
-            <Text style={styles.cardTag}>{card.tag}</Text>
-            <Text style={styles.cardTitle}>{card.title}</Text>
-            <Text style={styles.cardSubtitle}>{card.subtitle}</Text>
-            <View style={styles.cardArrow}>
-              <Text style={styles.cardArrowText}>→</Text>
+            <Text style={[styles.cardTag, { color: colors.primary }]}>{card.tag}</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>{card.title}</Text>
+            <Text style={[styles.cardSubtitle, { color: colors.textSub }]}>{card.subtitle}</Text>
+            <View style={[styles.cardArrow, { backgroundColor: colors.pillBg }]}>
+              <Text style={[styles.cardArrowText, { color: colors.primary }]}>→</Text>
             </View>
           </TouchableOpacity>
         ))}
       </ScrollView>
       <AdminTabBar />
-    </View>
+    </ImageBackground>
   )
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFF0C4' },
+  root: { flex: 1, width: '100%', height: '100%' },
   container: { padding: 24, paddingBottom: 48 },
-  heroSection: { marginBottom: 32 },
-  heroLabel: { fontSize: 10, letterSpacing: 3, color: '#8C1007', fontWeight: '700', marginBottom: 8 },
-  heroTitle: { fontSize: 36, fontFamily: 'Georgia', color: '#3E0703', fontWeight: '700', marginBottom: 16 },
-  divider: { height: 2, backgroundColor: '#8C1007', width: 48 },
+  hero: { marginBottom: 32 },
+  heroLabel: { fontSize: 10, letterSpacing: 3, fontWeight: '700', marginBottom: 8 },
+  heroTitle: { fontSize: 36, fontFamily: 'Georgia', fontWeight: '700', marginBottom: 16 },
+  divider: { height: 2, width: 48 },
+  blob: { position: 'absolute', width: 400, height: 400, borderRadius: 200, opacity: 0.08, zIndex: -1 },
+  blob1: { top: -100, right: -100 },
+  blob2: { bottom: -150, left: -100 },
+  blob3: { top: '30%', left: -200 },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 4,
+    borderRadius: 24,
     padding: 24,
     marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#8C1007',
-    shadowColor: '#3E0703',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 3,
   },
-  cardTag: { fontSize: 9, letterSpacing: 2.5, color: '#8C1007', fontWeight: '700', marginBottom: 8 },
-  cardTitle: { fontSize: 18, fontFamily: 'Georgia', color: '#3E0703', fontWeight: '700', marginBottom: 6 },
-  cardSubtitle: { fontSize: 13, color: '#7a5c5a', lineHeight: 20, marginBottom: 16 },
+  cardTag: { fontSize: 9, letterSpacing: 2.5, fontWeight: '700', marginBottom: 8 },
+  cardTitle: { fontSize: 18, fontFamily: 'Georgia', fontWeight: '700', marginBottom: 6 },
+  cardSubtitle: { fontSize: 13, lineHeight: 20, marginBottom: 16 },
   cardArrow: {
     alignSelf: 'flex-end',
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFF0C4',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardArrowText: { fontSize: 16, color: '#8C1007', fontWeight: '700' },
+  cardArrowText: { fontSize: 16, fontWeight: '700' },
 })

@@ -1,11 +1,35 @@
 import supabase from '../supabase.js';
 import asyncHandler from 'express-async-handler';
 
+// ─── MARK OVERDUE TICKETS ─────────────────────────────────────────────────────
+// Runs automatically before every dashboard fetch; also exported for cron use
+const markOverdueTickets = asyncHandler(async (req, res) => {
+  const { error } = await supabase
+    .from('tickets')
+    .update({ status: 'overdue' })
+    .eq('status', 'assigned')
+    .lt('deadline', new Date().toISOString());
+
+  if (error) {
+    res.status(500);
+    throw new Error(error.message);
+  }
+
+  res.status(200).json({ message: 'Overdue tickets updated.' });
+});
+
 // ─── GET ALL TICKETS (dashboard) ─────────────────────────────────────────────
 // GET /api/fm/tickets?status=&area=&category=&sort=
 
 const getTickets = asyncHandler(async (req, res) => {
   const { status, area, category, sort } = req.query;
+
+  // mark any assigned tickets past their deadline as overdue before fetching
+  await supabase
+    .from('tickets')
+    .update({ status: 'overdue' })
+    .eq('status', 'assigned')
+    .lt('deadline', new Date().toISOString());
 
   let query = supabase
     .from('tickets')
@@ -13,7 +37,6 @@ const getTickets = asyncHandler(async (req, res) => {
       id,
       category,
       area,
-      building,
       floor,
       specific_location,
       description,
@@ -32,7 +55,8 @@ const getTickets = asyncHandler(async (req, res) => {
         feedback,
         worker_note,
         status,
-        fm_id
+        fm_id,
+        attempt_number
       )
     `);
 
@@ -40,21 +64,28 @@ const getTickets = asyncHandler(async (req, res) => {
   if (area) query = query.eq('area', area);
   if (category) query = query.eq('category', category);
 
-  if (sort === 'oldest') {
-    query = query.order('created_at', { ascending: true });
-  } else if (sort === 'popular') {
-    query = query.order('category', { ascending: true }).order('area', { ascending: true });
-  } else {
-    query = query.order('created_at', { ascending: false });
+  if (sort !== 'popular') {
+    query = query.order('created_at', { ascending: sort === 'oldest' });
   }
 
   const { data, error } = await query;
-  console.log('data:', JSON.stringify(data, null, 2));
-  console.log('error:', error);
 
   if (error) {
     res.status(500);
     throw new Error(error.message);
+  }
+
+  if (sort === 'popular') {
+    const popularityMap = {};
+    data.forEach(ticket => {
+      const key = `${ticket.category}__${ticket.area}`;
+      popularityMap[key] = (popularityMap[key] || 0) + 1;
+    });
+    data.sort((a, b) => {
+      const keyA = `${a.category}__${a.area}`;
+      const keyB = `${b.category}__${b.area}`;
+      return popularityMap[keyB] - popularityMap[keyA];
+    });
   }
 
   res.status(200).json(data);
@@ -72,7 +103,6 @@ const getTicketById = asyncHandler(async (req, res) => {
       id,
       category,
       area,
-      building,
       floor,
       specific_location,
       description,
@@ -107,6 +137,26 @@ const getTicketById = asyncHandler(async (req, res) => {
   }
 
   res.status(200).json(data);
+});
+
+// ─── GET ALL ASSIGNMENTS FOR A TICKET (reassignment history) ──────────────────
+// GET /api/fm/tickets/:id/assignments
+
+const getTicketAssignments = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase
+    .from('assignments')
+    .select('*')
+    .eq('ticket_id', id)
+    .order('attempt_number', { ascending: true });
+
+  if (error) {
+    res.status(500);
+    throw new Error(error.message);
+  }
+
+  res.status(200).json(data || []);
 });
 
 // ─── GET ALL WORKERS ──────────────────────────────────────────────────────────
@@ -157,9 +207,10 @@ const assignTicket = asyncHandler(async (req, res) => {
     throw new Error('Ticket not found.');
   }
 
-  if (ticket.status !== 'pending') {
+  const allowedStatuses = ['pending', 'reassigned', 'overdue'];
+  if (!allowedStatuses.includes(ticket.status)) {
     res.status(400);
-    throw new Error('Only pending tickets can be assigned.');
+    throw new Error('Ticket cannot be assigned in its current status.');
   }
 
   // confirm worker exists
@@ -175,28 +226,86 @@ const assignTicket = asyncHandler(async (req, res) => {
     throw new Error('Worker not found.');
   }
 
-  // create assignment row
-  const { error: assignError } = await supabase
+  // Always read attempt_number from the DB — it's the source of truth
+  const { data: lastAttempt } = await supabase
     .from('assignments')
-    .insert({
-      ticket_id: id,
-      worker_id,
-      worker_name: worker.full_name,
-      deadline,
-      fm_id: req.user.id,
-      status: 'assigned',
-      priority: priority || 'medium',
-    });
+    .select('attempt_number')
+    .eq('ticket_id', id)
+    .order('attempt_number', { ascending: false })
+    .limit(1)
+    .single();
 
-  if (assignError) {
-    res.status(500);
-    throw new Error(assignError.message);
+  const latestAttemptNumber = lastAttempt?.attempt_number || 0;
+  const newStatus = latestAttemptNumber >= 1 ? 'reassigned' : 'assigned';
+
+  if (ticket.status === 'reassigned') {
+    // submitFeedback already created a pending shell — find and fill it
+    const { data: shell, error: shellError } = await supabase
+      .from('assignments')
+      .select('id')
+      .eq('ticket_id', id)
+      .eq('status', 'pending')
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (shellError || !shell) {
+      res.status(500);
+      throw new Error('Could not find the pending reassignment slot.');
+    }
+
+    const { error: updateErr } = await supabase
+      .from('assignments')
+      .update({
+        worker_id,
+        worker_name: worker.full_name,
+        deadline,
+        fm_id: req.user.id,
+        status: newStatus,
+        priority: priority || 'medium',
+      })
+      .eq('id', shell.id);
+
+    if (updateErr) {
+      res.status(500);
+      throw new Error(updateErr.message);
+    }
+  } else {
+    // pending or overdue — insert a new row
+    if (ticket.status === 'overdue') {
+      // mark the stale assignment as reassigned explicitly
+      await supabase
+        .from('assignments')
+        .update({ status: 'reassigned' })
+        .eq('ticket_id', id)
+        .eq('status', 'assigned');
+    }
+
+    const { error: assignError } = await supabase
+      .from('assignments')
+      .insert({
+        ticket_id: id,
+        worker_id,
+        worker_name: worker.full_name,
+        deadline,
+        fm_id: req.user.id,
+        status: newStatus,
+        priority: priority || 'medium',
+        attempt_number: latestAttemptNumber + 1,
+      });
+
+    if (assignError) {
+      res.status(500);
+      throw new Error(assignError.message);
+    }
   }
+
+  const newTicketStatus = newStatus;
 
   // sync tickets.status
   const { data: updated, error: ticketUpdateError } = await supabase
     .from('tickets')
-    .update({ status: 'assigned' })
+    .update({ status: newTicketStatus })
     .eq('id', id)
     .select()
     .single();
@@ -212,8 +321,8 @@ const assignTicket = asyncHandler(async (req, res) => {
     .insert({
       ticket_id: id,
       changed_by: req.user.id,
-      old_status: 'pending',
-      new_status: 'assigned',
+      old_status: ticket.status,
+      new_status: newTicketStatus,
     });
 
   if (logError) console.error('Status log insert failed:', logError.message);
@@ -240,7 +349,7 @@ const assignTicket = asyncHandler(async (req, res) => {
 
 const submitFeedback = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { action, feedback_text, new_deadline } = req.body;
+  const { action, feedback_text, new_deadline, new_priority } = req.body;
 
   if (!action || !['accept', 'reject'].includes(action)) {
     res.status(400);
@@ -301,9 +410,42 @@ const submitFeedback = asyncHandler(async (req, res) => {
     feedback: feedback_text?.trim() || null,
   };
 
+  // if (action === 'reject') {
+  //   assignmentUpdate.deadline = new_deadline;
+  //   assignmentUpdate.proof_url = null;
+  // }
   if (action === 'reject') {
-    assignmentUpdate.deadline = new_deadline;
-    assignmentUpdate.proof_url = null;
+    // mark current assignment as reassigned but keep all its data intact
+    await supabase
+      .from('assignments')
+      .update({
+        status: 'reassigned',
+        feedback: feedback_text?.trim() || null,
+      })
+      .eq('id', assignment.id);
+
+    // get current attempt number
+    const { data: attempts } = await supabase
+      .from('assignments')
+      .select('attempt_number')
+      .eq('ticket_id', id)
+      .order('attempt_number', { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextAttempt = (attempts?.attempt_number || 1) + 1;
+
+    // insert new assignment row ready for FM to assign a new worker
+    await supabase
+      .from('assignments')
+      .insert({
+        ticket_id: id,
+        fm_id: req.user.id,
+        status: 'pending',
+        attempt_number: nextAttempt,
+        deadline: new_deadline || null,
+        priority: new_priority || 'medium',
+      });
   }
 
   const { error: assignUpdateError } = await supabase
@@ -394,7 +536,7 @@ const submitFeedback = asyncHandler(async (req, res) => {
 
       const { error: pointsError } = await supabase.rpc('increment_points', {
         user_id: ticketCreator.created_by,
-        amount:  pointsToAward,
+        amount: pointsToAward,
       });
 
       if (pointsError) console.error('Points award failed:', pointsError.message);
@@ -478,10 +620,12 @@ const changePassword = asyncHandler(async (req, res) => {
 export {
   getTickets,
   getTicketById,
+  getTicketAssignments,
   getWorkers,
   assignTicket,
   submitFeedback,
   getSettings,
   verifyPassword,
   changePassword,
+  markOverdueTickets,
 };
