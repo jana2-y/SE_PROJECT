@@ -224,7 +224,7 @@ export async function submitWorkProof(userId, ticketId, buffer, mimeType, worker
   }
 
   const ext = (mimeType.split('/')[1] || 'jpg').split(';')[0].trim();
-  const fileName = `${userId}/${assignment.id}/proof_${assignment.attempt_number}.${ext}`;
+  const fileName = `${userId}/${assignment.id}_proof_${assignment.attempt_number}.${ext}`;
   console.log('[submitWorkProof] uploading to:', fileName);
 
   const { error: uploadError } = await supabase.storage
