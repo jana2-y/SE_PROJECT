@@ -1,43 +1,32 @@
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api'
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const request = async (method, path, body = null, token = null) => {
-  const headers = { 'Content-Type': 'application/json' }
-  if (token) headers['Authorization'] = `Bearer ${token}`
+const BASE_URL = 'http://localhost:3000/api';
+
+const request = async (method, path, body = null) => {
+  const token = await AsyncStorage.getItem('userToken');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers,
+    // Fix: If no body is provided, don't stringify null
     body: body ? JSON.stringify(body) : null,
-  })
+  });
 
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Something went wrong')
-  return data
-}
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+};
 
-export const api = {
-  // Auth
+const api = {
   signup: (body) => request('POST', '/auth/signup', body),
   login: (body) => request('POST', '/auth/login', body),
+  getStaff: (role) => request('GET', `/admin/users${role ? `?role=${role}` : ''}`),
+  activateUser: (id) => request('PATCH', `/admin/users/${id}/activate`, {}),
+  deactivateUser: (id) => request('PATCH', `/admin/users/${id}/deactivate`, {}),
+  verifyUser: (id) => request('PATCH', `/admin/users/${id}/verify`, {}),
+  getLeaderboard: () => request('GET', '/admin/leaderboard'),
+};
 
-  // Admin - users
-  getStaff: (token, role) => request('GET', `/admin/users${role ? `?role=${role}` : ''}`, null, token),
-  activateUser: (token, id) => request('PATCH', `/admin/users/${id}/activate`, null, token),
-  deactivateUser: (token, id) => request('PATCH', `/admin/users/${id}/deactivate`, null, token),
-  verifyUser: (token, id) => request('PATCH', `/admin/users/${id}/verify`, null, token),
-  getPendingUsers: (token) => request('GET', '/admin/users/pending', null, token),
-
-  // Admin - points & rewards
-  getLeaderboard: (token) => request('GET', '/admin/leaderboard', null, token),
-  getPointsConfig: (token) => request('GET', '/admin/points-config', null, token),
-  updatePointsConfig: (token, body) => request('PUT', '/admin/points-config', body, token),
-  adjustPoints: (token, id, body) => request('PATCH', `/admin/users/${id}/points`, body, token),
-  getRedemptions: (token) => request('GET', '/admin/redemptions', null, token),
-  markRedemptionUsed: (token, id) => request('PATCH', `/admin/redemptions/${id}/mark-used`, null, token),
-
-  // Rewards
-  getRewards: (token) => request('GET', '/rewards', null, token),
-  createReward: (token, body) => request('POST', '/rewards', body, token),
-  updateReward: (token, id, body) => request('PUT', `/rewards/${id}`, body, token),
-  deleteReward: (token, id) => request('DELETE', `/rewards/${id}`, null, token),
-}
+export default api;

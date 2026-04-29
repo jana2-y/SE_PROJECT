@@ -6,39 +6,62 @@ const getAllRewards = asyncHandler(async (req, res) => {
     .from('rewards')
     .select('*')
     .order('points_required', { ascending: true })
-
   if (error) { res.status(500); throw new Error(error.message) }
   res.status(200).json(data)
 })
 
 const createReward = asyncHandler(async (req, res) => {
   const { name, description, discount_percentage, points_required, duration_date } = req.body
-
   if (!name || !discount_percentage || !points_required || !duration_date) {
     res.status(400); throw new Error('Please fill out all required fields.')
   }
-
+  
+  console.log('Backend: Creating reward', name);
   const { data, error } = await supabase
     .from('rewards')
     .insert({ name, description, discount_percentage, points_required, duration_date, created_by: req.user.id })
     .select()
     .single()
+  
+  if (error) {
+    console.error('Backend: Reward creation error:', error.message);
+    res.status(500);
+    throw new Error(error.message);
+  }
 
-  if (error) { res.status(500); throw new Error(error.message) }
+  // Send notifications to Workers and Community Members
+  try {
+    const { data: usersToNotify } = await supabase
+      .from('users')
+      .select('id')
+      .in('role', ['worker', 'community_member']);
+
+    if (usersToNotify && usersToNotify.length > 0) {
+      const notifications = usersToNotify.map(u => ({
+        user_id: u.id,
+        message: `🎁 New Reward: ${name}! Only ${points_required} points needed.`,
+        is_read: false,
+      }));
+      await supabase.from('notifications').insert(notifications);
+    }
+    console.log('Backend: Notifications sent to', usersToNotify?.length, 'users');
+  } catch (notifyErr) {
+    console.error('Backend: Notification broadcast failed:', notifyErr.message);
+  }
+
+  console.log('Backend: Reward created successfully', data.id);
   res.status(201).json(data)
 })
 
 const updateReward = asyncHandler(async (req, res) => {
   const { id } = req.params
   const { name, description, discount_percentage, points_required, duration_date } = req.body
-
   const { data, error } = await supabase
     .from('rewards')
     .update({ name, description, discount_percentage, points_required, duration_date, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single()
-
   if (error) { res.status(500); throw new Error(error.message) }
   res.status(200).json(data)
 })
@@ -74,7 +97,6 @@ const redeemReward = asyncHandler(async (req, res) => {
 
   const { error } = await supabase.from('redemptions').insert({ cm_id, reward_id: id })
   if (error) { res.status(500); throw new Error(error.message) }
-
   res.status(201).json({ message: 'Reward redeemed successfully!' })
 })
 

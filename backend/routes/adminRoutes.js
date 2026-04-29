@@ -3,6 +3,8 @@ import {
   getUsers,
   approveUser,
   updateUserStatus,
+  activateUser,
+  deactivateUser,
   getLeaderboard,
   adjustPoints,
   getPointsConfig,
@@ -20,12 +22,14 @@ router.use(authorize('admin'));
 router.get('/users', getUsers);
 router.patch('/users/:id/approve', approveUser);
 router.patch('/users/:id/status', updateUserStatus);
+router.patch('/users/:id/activate', activateUser);
+router.patch('/users/:id/deactivate', deactivateUser);
 
 // Points & leaderboard
 router.get('/leaderboard', getLeaderboard);
 router.patch('/users/:id/points', adjustPoints);
 router.get('/points-config', getPointsConfig);
-router.put('/points-config', updatePointsConfig);
+router.patch('/points-config', updatePointsConfig);
 
 // Redemptions
 router.get('/redemptions', getRedemptions);

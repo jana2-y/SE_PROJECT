@@ -1,7 +1,59 @@
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native'
+import {
+  View, Text, TouchableOpacity, StyleSheet,
+  FlatList, ActivityIndicator, Alert, StatusBar, Platform
+} from 'react-native'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { api } from '../../services/api'
+import api from '../../services/api'
+import AdminTabBar from '../../components/admin/AdminTabBar'
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#FFF0C4' },
+  filterRow: {
+    flexDirection: 'row', padding: 20, gap: 10,
+    backgroundColor: '#3E0703',
+  },
+  filterBtn: {
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1, borderColor: '#FFF0C4',
+  },
+  filterBtnActive: {
+    backgroundColor: '#FFF0C4',
+  },
+  filterText: { color: '#FFF0C4', fontSize: 12, fontWeight: '600' },
+  filterTextActive: { color: '#3E0703' },
+  list: { padding: 20, paddingBottom: 40 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { color: '#7a5c5a', fontSize: 15 },
+  card: {
+    backgroundColor: '#fff', borderRadius: 4, padding: 16, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    shadowColor: '#3E0703', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+  },
+  cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  avatar: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: '#3E0703',
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  avatarText: { color: '#FFF0C4', fontSize: 18, fontWeight: '700', fontFamily: 'Georgia' },
+  cardInfo: { flex: 1 },
+  cardName: { fontSize: 16, fontFamily: 'Georgia', color: '#3E0703', fontWeight: '700', marginBottom: 2 },
+  cardEmail: { fontSize: 12, color: '#7a5c5a', marginBottom: 4 },
+  cardRole: { fontSize: 9, letterSpacing: 1.5, color: '#8C1007', fontWeight: '700' },
+  cardRight: { marginLeft: 10 },
+  toggleBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4, minWidth: 90, alignItems: 'center' },
+  activateBtn: { backgroundColor: '#3E0703' },
+  deactivateBtn: { borderWidth: 1, borderColor: '#8C1007' },
+  toggleText: { fontSize: 12, fontWeight: '700' },
+})
+
+const filters = [
+  { label: 'All', value: null },
+  { label: 'FM', value: 'facility_manager' },
+  { label: 'Workers', value: 'worker' },
+]
 
 export default function AdminUsers() {
   const { user } = useAuth()
@@ -10,96 +62,107 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true)
 
   const fetchStaff = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const data = await api.getStaff(user.token, filter)
-      setStaff(data)
+      const data = await api.getStaff(filter);
+      // Only show users who have been verified (is_active is true or false, but NOT null)
+      setStaff(data.filter(u => u.is_active !== null));
     } catch (e) {
-      Alert.alert('Error', e.message)
+      Alert.alert('Error', e.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => { fetchStaff() }, [filter])
 
   const toggleActive = async (id, isActive) => {
-    try {
-      if (isActive) {
-        await api.deactivateUser(user.token, id)
-      } else {
-        await api.activateUser(user.token, id)
+    const action = isActive ? 'deactivate' : 'activate';
+    
+    const performToggle = async () => {
+      try {
+        if (isActive) await api.deactivateUser(id)
+        else await api.activateUser(id)
+        await fetchStaff()
+      } catch (e) {
+        Alert.alert('Error', e.message)
       }
-      fetchStaff()
-    } catch (e) {
-      Alert.alert('Error', e.message)
+    }
+
+    if (Platform.OS === 'web') {
+      // Direct call on web because Alert.alert buttons don't work reliably
+      performToggle();
+    } else {
+      Alert.alert(
+        isActive ? 'Deactivate Account' : 'Activate Account',
+        `Are you sure you want to ${action} this account?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm',
+            style: isActive ? 'destructive' : 'default',
+            onPress: performToggle
+          }
+        ]
+      )
     }
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.filters}>
-        {[null, 'facility_manager', 'worker'].map((r) => (
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#3E0703" />
+      <View style={styles.filterRow}>
+        {filters.map((f) => (
           <TouchableOpacity
-            key={r}
-            style={[styles.filterBtn, filter === r && styles.filterActive]}
-            onPress={() => setFilter(r)}
+            key={String(f.value)}
+            style={[styles.filterBtn, filter === f.value && styles.filterBtnActive]}
+            onPress={() => setFilter(f.value)}
           >
-            <Text style={[styles.filterText, filter === r && styles.filterTextActive]}>
-              {r === null ? 'All' : r === 'facility_manager' ? 'FM' : 'Workers'}
+            <Text style={[styles.filterText, filter === f.value && styles.filterTextActive]}>
+              {f.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {loading ? <ActivityIndicator size="large" color="#004e92" style={{ marginTop: 40 }} /> : (
+      {loading ? (
+        <ActivityIndicator size="large" color="#8C1007" style={{ marginTop: 60 }} />
+      ) : staff.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No accounts found</Text>
+        </View>
+      ) : (
         <FlatList
           data={staff}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <View style={styles.cardInfo}>
-                <Text style={styles.name}>{item.full_name}</Text>
-                <Text style={styles.email}>{item.email}</Text>
-                <Text style={styles.role}>{item.role === 'facility_manager' ? 'FM' : 'Worker'}</Text>
+              <View style={styles.cardLeft}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{item.full_name?.charAt(0)}</Text>
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardName}>{item.full_name}</Text>
+                  <Text style={styles.cardEmail}>{item.email}</Text>
+                  <Text style={styles.cardRole}>{item.role?.replace('_', ' ').toUpperCase()}</Text>
+                </View>
               </View>
               <View style={styles.cardRight}>
-                <Text style={[styles.status, item.is_active ? styles.active : styles.inactive]}>
-                  {item.is_active ? 'Active' : 'Deactivated'}
-                </Text>
                 <TouchableOpacity
                   style={[styles.toggleBtn, item.is_active ? styles.deactivateBtn : styles.activateBtn]}
                   onPress={() => toggleActive(item.id, item.is_active)}
                 >
-                  <Text style={styles.toggleText}>{item.is_active ? 'Deactivate' : 'Activate'}</Text>
+                  <Text style={[styles.toggleText, { color: item.is_active ? '#8C1007' : '#FFF0C4' }]}>
+                    {item.is_active ? 'Deactivate' : 'Activate'}
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
         />
       )}
+      <AdminTabBar />
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  filters: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  filterBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f0f0' },
-  filterActive: { backgroundColor: '#004e92' },
-  filterText: { color: '#555', fontWeight: '600' },
-  filterTextActive: { color: '#fff' },
-  card: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#f9f9f9', borderRadius: 10, marginBottom: 10 },
-  cardInfo: { flex: 1 },
-  name: { fontSize: 15, fontWeight: '700', color: '#1a1a1a' },
-  email: { fontSize: 12, color: '#777', marginTop: 2 },
-  role: { fontSize: 12, color: '#004e92', marginTop: 4, fontWeight: '600' },
-  cardRight: { alignItems: 'flex-end', gap: 8 },
-  status: { fontSize: 12, fontWeight: '700' },
-  active: { color: '#2e7d32' },
-  inactive: { color: '#c62828' },
-  toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  activateBtn: { backgroundColor: '#2e7d32' },
-  deactivateBtn: { backgroundColor: '#c62828' },
-  toggleText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-})

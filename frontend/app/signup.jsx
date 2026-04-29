@@ -229,8 +229,8 @@ import api from '../services/api';
 
 const LANG_OPTIONS = [
     { label: 'English', code: 'en', key: 'English' },
-    { label: 'العربية', code: 'ar', key: 'Arabic'  },
-    { label: 'Deutsch', code: 'de', key: 'German'  },
+    { label: 'العربية', code: 'ar', key: 'Arabic' },
+    { label: 'Deutsch', code: 'de', key: 'German' },
 ];
 
 

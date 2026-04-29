@@ -4,19 +4,25 @@ import asyncHandler from 'express-async-handler';
 // ─── GET USERS (with optional role filter) ───────────────────────────────
 const getUsers = asyncHandler(async (req, res) => {
   const { role } = req.query;
-  let query = supabase.from('users').select('*');
-  if (role) query = query.eq('role', role);
+  let query = supabase.from('users').select('*').neq('role', 'admin').neq('role', 'community_member');
+  if (role) {
+    query = query.eq('role', role);
+  }
   const { data, error } = await query;
-  if (error) { res.status(500); throw new Error(error.message) }
+  if (error) {
+    res.status(500);
+    throw new Error(error.message);
+  }
   res.status(200).json(data);
 });
 
 // ─── APPROVE USER (pending → active) ─────────────────────────────────────
 const approveUser = asyncHandler(async (req, res) => {
   const userId = req.params.id;
+  // Admin approves: sets is_active to true. This removes them from "Requests" (is_active: null)
   const { error } = await supabase
     .from('users')
-    .update({ status: 'active', is_active: true, is_verified: true })
+    .update({ is_active: true })
     .eq('id', userId);
   if (error) { res.status(500); throw new Error(error.message) }
 
@@ -29,16 +35,35 @@ const approveUser = asyncHandler(async (req, res) => {
   res.status(200).json({ message: 'User approved successfully' });
 });
 
-// ─── ACTIVATE / DEACTIVATE USER ──────────────────────────────────────────
+// ─── ACTIVATE USER ───────────────────────────────────────────────────────
+const activateUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from('users')
+    .update({ is_active: true })
+    .eq('id', id);
+  if (error) { res.status(500); throw new Error(error.message) }
+  res.status(200).json({ message: 'User activated successfully.' });
+});
+
+// ─── DEACTIVATE USER ─────────────────────────────────────────────────────
+const deactivateUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from('users')
+    .update({ is_active: false })
+    .eq('id', id);
+  if (error) { res.status(500); throw new Error(error.message) }
+  res.status(200).json({ message: 'User deactivated successfully.' });
+});
+
+// ─── UPDATE USER STATUS (Generic) ──────────────────────────────────────────
 const updateUserStatus = asyncHandler(async (req, res) => {
   const userId = req.params.id;
   const { status } = req.body;
-  if (!['active', 'deactivated'].includes(status)) {
-    res.status(400); throw new Error('Invalid status value');
-  }
   const { error } = await supabase
     .from('users')
-    .update({ status, is_active: status === 'active' })
+    .update({ is_active: status === 'active' })
     .eq('id', userId);
   if (error) { res.status(500); throw new Error(error.message) }
   res.status(200).json({ message: 'User status updated successfully' });
@@ -125,6 +150,8 @@ const markRedemptionUsed = asyncHandler(async (req, res) => {
 export {
   getUsers,
   approveUser,
+  activateUser,
+  deactivateUser,
   updateUserStatus,
   getLeaderboard,
   adjustPoints,

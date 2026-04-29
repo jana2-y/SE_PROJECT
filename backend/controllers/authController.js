@@ -163,7 +163,7 @@ const signup = asyncHandler(async (req, res) => {
             department: role === 'community_member' && cm_role === 'staff' ? department : null,
             specialty: role === 'worker' ? specialty : null,
             years_experience: role === 'worker' && years_experience ? years_experience : null,
-            is_active: true,
+            is_active: role === 'community_member' ? true : null, // null means "Pending Verification"
         });
 
     if (dbError) {
@@ -223,9 +223,14 @@ const login = asyncHandler(async (req, res) => {
         throw new Error(userError?.message || 'Could not retrieve user data.');
     }
 
-    if (!userData.is_active) {
+    if (userData.is_active === null) {
         res.status(403);
-        throw new Error('Your account has been deactivated.');
+        throw new Error('Your account is pending admin verification. Please wait.');
+    }
+
+    if (userData.is_active === false) {
+        res.status(403);
+        throw new Error('Your account has been deactivated. Please contact admin.');
     }
 
     res.status(200).json({

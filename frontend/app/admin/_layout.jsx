@@ -14,6 +14,9 @@ export default function AdminLayout() {
       <Stack.Screen name="users" options={{ title: 'Manage Accounts' }} />
       <Stack.Screen name="requests" options={{ title: 'Verification Requests' }} />
       <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="leaderboard" options={{ title: 'LEADERBOARD' }} />
+      <Stack.Screen name="rewards" options={{ title: 'REWARDS' }} />
     </Stack>
   );
 }
+

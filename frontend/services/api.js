@@ -65,6 +65,46 @@ const api = {
             body: JSON.stringify(userData),
         });
     },
+
+    // ── Admin: staff management ──────────────────────────────────────────
+    getStaff(role) {
+        const query = role ? `?role=${role}` : '';
+        return this.request(`/admin/users${query}`, { method: 'GET' });
+    },
+
+    activateUser(id) {
+        return this.request(`/admin/users/${id}/activate`, { method: 'PATCH', body: JSON.stringify({}) });
+    },
+
+    deactivateUser(id) {
+        return this.request(`/admin/users/${id}/deactivate`, { method: 'PATCH', body: JSON.stringify({}) });
+    },
+
+    verifyUser(id) {
+        return this.request(`/admin/users/${id}/verify`, { method: 'PATCH', body: JSON.stringify({}) });
+    },
+
+    // ── Rewards ──────────────────────────────────────────────────────────
+    getRewards() {
+        return this.request('/rewards', { method: 'GET' });
+    },
+
+    createReward(rewardData) {
+        return this.request('/rewards', { method: 'POST', body: JSON.stringify(rewardData) });
+    },
+
+    deleteReward(id) {
+        return this.request(`/rewards/${id}`, { method: 'DELETE' });
+    },
+
+    // ── Points Config ────────────────────────────────────────────────────
+    getPointsConfig() {
+        return this.request('/admin/points-config', { method: 'GET' });
+    },
+
+    updatePointsConfig(config) {
+        return this.request('/admin/points-config', { method: 'PATCH', body: JSON.stringify(config) });
+    },
 };
 
 export default api;
