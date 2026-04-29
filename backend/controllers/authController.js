@@ -209,16 +209,9 @@ const login = asyncHandler(async (req, res) => {
         .from('users')
         .select('id, full_name, email, role, cm_role, major, department, theme, is_active')
         .eq('id', data.user.id)
-        .single();
+        .maybeSingle();
 
-    // if (userError || !userData) {
-    //     res.status(500);
-    //     throw new Error('Could not retrieve user data.');
-    // }
-
-    //temp:
-
-    if (userError || !userData) {
+    if (!userData) {
         res.status(500);
         throw new Error(userError?.message || 'Could not retrieve user data.');
     }
