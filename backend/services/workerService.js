@@ -227,10 +227,25 @@ export async function submitWorkProof(userId, ticketId, buffer, mimeType, worker
   const fileName = `${userId}/${assignment.id}_proof_${assignment.attempt_number}.${ext}`;
   console.log('[submitWorkProof] uploading to:', fileName);
 
-  const { error: uploadError } = await supabase.storage
-    .from('proof-image')
-    .upload(fileName, buffer, { contentType: mimeType, upsert: true });
-  if (uploadError) { console.error('[submitWorkProof] uploadError:', uploadError.message); throw new Error(uploadError.message); }
+  // Use REST API directly so the service role key is always explicit in the header,
+  // bypassing any auth-state mutation from supabase.auth.getUser() in the middleware.
+  const uploadRes = await fetch(
+    `${process.env.SUPABASE_URL}/storage/v1/object/proof-image/${fileName}`,
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Content-Type': mimeType,
+        'x-upsert': 'true',
+      },
+      body: buffer,
+    }
+  );
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text();
+    console.error('[submitWorkProof] uploadError:', errText);
+    throw new Error(`Upload failed: ${errText}`);
+  }
 
   // Create a long-lived signed URL (1 year)
   const { data: proofSigned, error: proofSignErr } = await supabase.storage
